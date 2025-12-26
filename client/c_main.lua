@@ -465,13 +465,35 @@ CreateThread(function()
     SetEntityInvincible(ped, true)
     SetBlockingOfNonTemporaryEvents(ped, true)
 
-    exports['qb-target']:AddTargetEntity(ped, {
-        options = {
-            { event = 'speedway:client:createLobby', icon = 'fa-solid fa-flag-checkered', label = loc("create_lobby"), canInteract = function() return not hasLobby end },
-            { event = 'speedway:client:joinLobby',   icon = 'fa-solid fa-user-plus',         label = loc("join_lobby"),   canInteract = function() return hasLobby and not currentLobby end },
-        },
-        distance = 2.5
-    })
+    -- Support both ox_target and qb-target based on config
+    if Config.TargetSystem == 'ox_target' then
+        exports.ox_target:addLocalEntity(ped, {
+            {
+                name = 'speedway_create_lobby',
+                event = 'speedway:client:createLobby',
+                icon = 'fa-solid fa-flag-checkered',
+                label = loc("create_lobby"),
+                canInteract = function() return not hasLobby end,
+                distance = 2.5,
+            },
+            {
+                name = 'speedway_join_lobby',
+                event = 'speedway:client:joinLobby',
+                icon = 'fa-solid fa-user-plus',
+                label = loc("join_lobby"),
+                canInteract = function() return hasLobby and not currentLobby end,
+                distance = 2.5,
+            },
+        })
+    else
+        exports['qb-target']:AddTargetEntity(ped, {
+            options = {
+                { event = 'speedway:client:createLobby', icon = 'fa-solid fa-flag-checkered', label = loc("create_lobby"), canInteract = function() return not hasLobby end },
+                { event = 'speedway:client:joinLobby',   icon = 'fa-solid fa-user-plus',         label = loc("join_lobby"),   canInteract = function() return hasLobby and not currentLobby end },
+            },
+            distance = 2.5
+        })
+    end
 
     local blip = AddBlipForCoord(cfg.coords.x, cfg.coords.y, cfg.coords.z)
     SetBlipSprite(blip, 315); SetBlipDisplay(blip, 4); SetBlipScale(blip, 0.8); SetBlipAsShortRange(blip, false)

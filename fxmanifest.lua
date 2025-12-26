@@ -34,8 +34,8 @@ files {
 dependencies {
     'ox_lib',
     'qb-core',
-    'qb-target',
     'oxmysql',
+    -- Target system: requires either 'ox_target' or 'qb-target' (configure in config.lua)
 }
 
 lua54 'yes'

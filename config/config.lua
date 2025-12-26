@@ -1,6 +1,10 @@
 Config = Config or {}
 
 Config.Locale = "en"  -- change to "fr" or "de" as needed
+
+-- Target System: 'ox_target' or 'qb-target'
+-- Set this based on which target script your server uses
+Config.TargetSystem = 'ox_target'
 -- Race start delay in seconds (time before race begins after countdown)
 -- Default is 3 for testing, but most players prefer 10 seconds or less
 Config.RaceStartDelay = 10
@@ -82,9 +86,70 @@ Config.SegmentHints = {
             vector3(-3133.31, 8121.73, 45.53),
         },
     },
-    Drift_Track = {},
-    Speed_Track = {},
-    Long_Track  = {},
+    -- Drift Track: Segment hints for sweeping turns
+    Drift_Track = {
+        -- Start -> CP1: same as Short_Track
+        [0] = {
+            vector3(-2481.06, 8167.71, 40.65),
+            vector3(-2462.81, 8236.75, 42.85),
+            vector3(-2525.66, 8231.02, 38.05),
+        },
+        -- CP1 -> CP2: long run north to drift section
+        [1] = {
+            vector3(-2580.20, 8320.50, 41.20),
+            vector3(-2650.80, 8400.30, 42.50),
+            vector3(-2720.40, 8480.60, 43.20),
+        },
+        -- CP2 -> CP3: sweeping left to west return
+        [2] = {
+            vector3(-2860.50, 8520.30, 42.80),
+            vector3(-2920.80, 8470.60, 40.20),
+        },
+    },
+    -- Speed Track: Outer oval segment hints
+    Speed_Track = {
+        [0] = {
+            vector3(-2481.06, 8167.71, 40.65),
+            vector3(-2462.81, 8236.75, 42.85),
+            vector3(-2525.66, 8231.02, 38.05),
+        },
+        [1] = {
+            vector3(-2570.30, 8300.40, 40.80),
+            vector3(-2610.50, 8340.20, 41.20),
+        },
+        [2] = {
+            vector3(-2720.60, 8410.30, 41.80),
+            vector3(-2800.40, 8425.50, 42.00),
+        },
+        [3] = {
+            vector3(-2980.50, 8380.20, 39.50),
+            vector3(-3080.30, 8320.40, 37.80),
+        },
+    },
+    -- Long Track: Full circuit segment hints
+    Long_Track = {
+        [0] = {
+            vector3(-2481.06, 8167.71, 40.65),
+            vector3(-2462.81, 8236.75, 42.85),
+            vector3(-2525.66, 8231.02, 38.05),
+        },
+        [1] = {
+            vector3(-2580.40, 8320.60, 41.30),
+            vector3(-2640.80, 8390.40, 42.20),
+        },
+        [2] = {
+            vector3(-2760.30, 8510.50, 41.50),
+            vector3(-2820.60, 8540.30, 40.80),
+        },
+        [3] = {
+            vector3(-2950.40, 8480.60, 38.20),
+            vector3(-3010.80, 8440.30, 37.60),
+        },
+        [4] = {
+            vector3(-3120.50, 8320.40, 40.50),
+            vector3(-3160.30, 8260.80, 43.20),
+        },
+    },
 }
 
 --- START / FINISH LINE POLYGON (used for ROSZ detection if you ever need it)
@@ -94,26 +159,32 @@ Config.StartLinePoints = {
 
 --- TRACK CHECKPOINTS (must drive through these in order)
 Config.Checkpoints = {
+    -- Short Track: Quick inner oval (3 checkpoints)
     Short_Track = {
-        vector3(-2519.90, 8237.24, 38.46),
-        vector3(-2719.17, 8335.82, 40.43),
-        vector3(-3102.41, 8305.79, 35.85),
+        vector3(-2519.90, 8237.24, 38.46),  -- CP1: Southeast hairpin
+        vector3(-2719.17, 8335.82, 40.43),  -- CP2: North straight
+        vector3(-3102.41, 8305.79, 35.85),  -- CP3: Northwest corner
     },
+    -- Drift Track: Extended route with wide sweeping turns (3 checkpoints)
     Drift_Track = {
-        vector3(-2519.90, 8237.24, 38.46),
-        vector3(-2802.37, 8546.86, 43.96),
-        vector3(-2950.20, 8405.94, 36.45),
+        vector3(-2519.90, 8237.24, 38.46),  -- CP1: Southeast hairpin (shared)
+        vector3(-2802.37, 8546.86, 43.96),  -- CP2: Far north drift section
+        vector3(-2950.20, 8405.94, 36.45),  -- CP3: West return sweeper
     },
+    -- Speed Track: Outer oval for high-speed runs (4 checkpoints)
     Speed_Track = {
-        vector3(-2519.90, 8237.24, 38.46),
-        vector3(350.0, 250.0, 102.0),
-        vector3(400.0, 300.0, 102.0),
+        vector3(-2519.90, 8237.24, 38.46),  -- CP1: Southeast hairpin (shared)
+        vector3(-2650.50, 8380.20, 41.50),  -- CP2: East backstretch
+        vector3(-2850.80, 8420.60, 42.10),  -- CP3: North curve apex
+        vector3(-3150.30, 8280.40, 38.20),  -- CP4: West long straight
     },
+    -- Long Track: Full circuit combining all sections (5 checkpoints)
     Long_Track = {
-        vector3(-2519.90, 8237.24, 38.46),
-        vector3(150.0, 150.0, 102.0),
-        vector3(200.0, 200.0, 102.0),
-        vector3(250.0, 250.0, 102.0),
+        vector3(-2519.90, 8237.24, 38.46),  -- CP1: Southeast hairpin (shared)
+        vector3(-2700.80, 8450.30, 42.80),  -- CP2: Northeast esses
+        vector3(-2870.20, 8550.10, 40.50),  -- CP3: Far north chicane
+        vector3(-3050.60, 8400.80, 37.30),  -- CP4: Northwest sweeper
+        vector3(-3180.40, 8200.50, 44.00),  -- CP5: West carousel
     },
 }
 
@@ -151,6 +222,24 @@ Config.PitCrewCrewOffsets = {
     vector3( 0.0, -2.0,  0.0),  -- refuel spot (rear)
     vector3( 0.0,  2.0,  0.0),  -- hood spot (front)
     vector3( 2.0,  0.0,  0.0),  -- jack spot (side)
+}
+
+-- Pit Stop Timing (adjust for realism vs speed)
+Config.PitStopTiming = {
+    crewWalkSpeed    = 2.0,     -- 1.0 = walk, 2.0 = jog, 3.0+ = run
+    refuelSteps      = 15,      -- Number of fuel increments (more = smoother fill)
+    refuelStepMs     = 200,     -- Milliseconds per refuel step (total = steps * ms)
+    repairDuration   = 3000,    -- Milliseconds for repair animation
+    approachTimeout  = 8000,    -- Max ms to wait for crew to approach vehicle
+    returnTimeout    = 15000,   -- Max ms to wait for crew to return to positions
+}
+
+-- Pit Crew Idle Animations (randomly selected for variety)
+Config.PitCrewIdleAnims = {
+    "WORLD_HUMAN_STAND_IMPATIENT",
+    "WORLD_HUMAN_AA_SMOKE",
+    "WORLD_HUMAN_CLIPBOARD",
+    "WORLD_HUMAN_DRINKING",
 }
 
 

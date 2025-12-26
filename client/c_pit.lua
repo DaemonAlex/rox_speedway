@@ -67,12 +67,10 @@ CreateThread(function()
             local ped = CreatePed(4, modelHash, pos.x, pos.y, spawnZ, zoneHeading, false, false)
             FreezeEntityPosition(ped, true)
             SetBlockingOfNonTemporaryEvents(ped, true)
-            if i == 2 then
-                -- Ped 5 (second idle) smokes while standing by
-                TaskStartScenarioInPlace(ped, "WORLD_HUMAN_AA_SMOKE", 0, true)
-            else
-                TaskStartScenarioInPlace(ped, "WORLD_HUMAN_STAND_IMPATIENT", 0, true)
-            end
+            -- Random idle animation from config for variety
+            local idleAnims = Config.PitCrewIdleAnims or { "WORLD_HUMAN_STAND_IMPATIENT" }
+            local randomAnim = idleAnims[math.random(1, #idleAnims)]
+            TaskStartScenarioInPlace(ped, randomAnim, 0, true)
             data.idle[i] = ped
         end
 
@@ -258,15 +256,20 @@ CreateThread(function()
                 local rfFound, rfz = GetGroundZFor_3dCoord(fuelPos.x, fuelPos.y, fuelPos.z + 3.0, false)
                 local rfx, rfy, rfz2 = fuelPos.x, fuelPos.y, rfFound and rfz or fuelPos.z
 
+                -- Get configurable timing values
+                local timing = Config.PitStopTiming or {}
+                local crewSpeed = timing.crewWalkSpeed or 2.0
+                local approachTimeout = timing.approachTimeout or 8000
+
                 -- staged movement
-                TaskGoStraightToCoord(refuelPed, fuelApproach.x, fuelApproach.y, fuelApproach.z, 2.6, -1, GetEntityHeading(veh), 0.5)
+                TaskGoStraightToCoord(refuelPed, fuelApproach.x, fuelApproach.y, fuelApproach.z, crewSpeed, -1, GetEntityHeading(veh), 0.5)
                 -- jack ped: route via a front gate then to passenger side to avoid cutting across the hood
                 local frontGate = GetOffsetFromEntityInWorldCoords(veh, 0.0, 2.8, 0.0)
                 local fgFound, fgz = GetGroundZFor_3dCoord(frontGate.x, frontGate.y, frontGate.z + 3.0, false)
                 if fgFound then frontGate = vector3(frontGate.x, frontGate.y, fgz) end
-                TaskGoStraightToCoord(jackPed,   frontGate.x,  frontGate.y,  frontGate.z,  2.6, -1, GetEntityHeading(veh), 0.5)
+                TaskGoStraightToCoord(jackPed,   frontGate.x,  frontGate.y,  frontGate.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5)
                 -- hood ped: approach front center of the vehicle
-                TaskGoStraightToCoord(hoodPed,   frontApproach.x, frontApproach.y, frontApproach.z,  2.6, -1, GetEntityHeading(veh), 0.5)
+                TaskGoStraightToCoord(hoodPed,   frontApproach.x, frontApproach.y, frontApproach.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5)
 
                 if Config.DebugPrints then
                     print(string.format("👷 [ROX-Speedway] Move orders → refuel:(%.2f,%.2f,%.2f) hood:(%.2f,%.2f,%.2f) tire:(%.2f,%.2f,%.2f)",
@@ -298,33 +301,34 @@ CreateThread(function()
                 local t0 = GetGameTimer()
                 local atRefuelA, atHoodA, atJackA = false, false, false
                 local jackAtGate = false
-                while (GetGameTimer() - t0) < 6000 do
+                while (GetGameTimer() - t0) < approachTimeout do
                     if not atRefuelA and #(GetEntityCoords(refuelPed) - fuelApproach) <= 1.6 then atRefuelA = true end
                     if not atHoodA   and #(GetEntityCoords(hoodPed)   - frontApproach) <= 1.6 then atHoodA = true end
                     if (not jackAtGate) and #(GetEntityCoords(jackPed) - frontGate) <= 1.6 then
                         jackAtGate = true
-                        TaskGoStraightToCoord(jackPed,   sideApproach.x,  sideApproach.y,  sideApproach.z,  2.6, -1, GetEntityHeading(veh), 0.5)
+                        TaskGoStraightToCoord(jackPed,   sideApproach.x,  sideApproach.y,  sideApproach.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5)
                     end
                     if not atJackA and #(GetEntityCoords(jackPed) - sideApproach) <= 1.6 then atJackA = true end
                     if atRefuelA and atHoodA and atJackA then break end
                     -- nudge if stuck
                     if (GetGameTimer() - t0) % 1200 < 60 then
-                        if not atRefuelA then TaskGoStraightToCoord(refuelPed, fuelApproach.x, fuelApproach.y, fuelApproach.z, 2.6, -1, GetEntityHeading(veh), 0.5) end
-                        if not atHoodA   then TaskGoStraightToCoord(hoodPed,   frontApproach.x, frontApproach.y, frontApproach.z,  2.6, -1, GetEntityHeading(veh), 0.5) end
+                        if not atRefuelA then TaskGoStraightToCoord(refuelPed, fuelApproach.x, fuelApproach.y, fuelApproach.z, crewSpeed, -1, GetEntityHeading(veh), 0.5) end
+                        if not atHoodA   then TaskGoStraightToCoord(hoodPed,   frontApproach.x, frontApproach.y, frontApproach.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5) end
                         if not atJackA then
                             if jackAtGate then
-                                TaskGoStraightToCoord(jackPed,   sideApproach.x,  sideApproach.y,  sideApproach.z,  2.6, -1, GetEntityHeading(veh), 0.5)
+                                TaskGoStraightToCoord(jackPed,   sideApproach.x,  sideApproach.y,  sideApproach.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5)
                             else
-                                TaskGoStraightToCoord(jackPed,   frontGate.x,  frontGate.y,  frontGate.z,  2.6, -1, GetEntityHeading(veh), 0.5)
+                                TaskGoStraightToCoord(jackPed,   frontGate.x,  frontGate.y,  frontGate.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5)
                             end
                         end
                     end
                     Wait(100)
                 end
-                -- final legs
-                TaskGoStraightToCoord(refuelPed, rfx, rfy, rfz2, 2.2, -1, GetEntityHeading(veh), 0.5)
-                TaskGoStraightToCoord(jackPed,   sidePos.x,  sidePos.y,  sidePos.z,  2.2, -1, GetEntityHeading(veh), 0.5)
-                TaskGoStraightToCoord(hoodPed,   frontPos.x, frontPos.y, frontPos.z, 2.2, -1, GetEntityHeading(veh), 0.5)
+                -- final legs (slightly slower for precision positioning)
+                local finalSpeed = math.max(1.5, crewSpeed - 0.5)
+                TaskGoStraightToCoord(refuelPed, rfx, rfy, rfz2, finalSpeed, -1, GetEntityHeading(veh), 0.5)
+                TaskGoStraightToCoord(jackPed,   sidePos.x,  sidePos.y,  sidePos.z,  finalSpeed, -1, GetEntityHeading(veh), 0.5)
+                TaskGoStraightToCoord(hoodPed,   frontPos.x, frontPos.y, frontPos.z, finalSpeed, -1, GetEntityHeading(veh), 0.5)
 
                 local t1 = GetGameTimer()
                 local arrivedRefuel, arrivedHood, arrivedJack = false, false, false
@@ -383,13 +387,14 @@ CreateThread(function()
                 -- 2) Jack/tire ped: play mechanic loop at wheel
                 TaskPlayAnim(jackPed, "anim@amb@clubhouse@tutorial@bkr_tut_ig3@", "machinic_loop_mechandplayer", 8.0, -8.0, -1, 1, 0.0, false, false, false)
 
-                -- fill + repair
+                -- fill + repair (using configurable timing)
+                local refuelSteps = timing.refuelSteps or 15
+                local refuelStepMs = timing.refuelStepMs or 200
                 local startFuel = math.max(0.0, GetVehicleFuelLevel(veh))
-                local steps = 10
-                for i = 1, steps do
-                    local lvl = startFuel + (100 - startFuel) * (i / steps)
+                for i = 1, refuelSteps do
+                    local lvl = startFuel + (100 - startFuel) * (i / refuelSteps)
                     if SetFuelLevel then SetFuelLevel(veh, lvl) else SetVehicleFuelLevel(veh, lvl) end
-                    Wait(300)
+                    Wait(refuelStepMs)
                 end
                 -- ensure final sync across fuel scripts
                 if SetFullFuel then SetFullFuel(veh) else SetVehicleFuelLevel(veh, 100.0) end
@@ -453,6 +458,7 @@ CreateThread(function()
 
                     TaskGoToCoordAnyMeans(cp, tx, ty, tz, 2.0, 0, 0, 786603, 0.0)
                 end
+                local returnTimeout = timing.returnTimeout or 15000
                 local backStart = GetGameTimer()
                 repeat
                     Wait(50)
@@ -464,10 +470,11 @@ CreateThread(function()
                         local dist2d = math.sqrt(dx*dx + dy*dy)
                         if dist2d > 1.1 then allBack = false; break end
                     end
-                    if allBack or (GetGameTimer() - backStart) > 15000 then break end
+                    if allBack or (GetGameTimer() - backStart) > returnTimeout then break end
                 until false
                 -- Freeze, snap to exact home, face original spawn heading, and resume idle scenario
                 local retHeading = zoneData.spawnHeading or (zoneCfg.heading or 0.0)
+                local idleAnims = Config.PitCrewIdleAnims or { "WORLD_HUMAN_STAND_IMPATIENT" }
                 for _, cp in ipairs(zoneData.crew) do
                     local tgt = returnTargets[cp]
                     if tgt then
@@ -476,7 +483,9 @@ CreateThread(function()
                     FreezeEntityPosition(cp, true)
                     SetEntityHeading(cp, retHeading)
                     ClearPedTasksImmediately(cp)
-                    TaskStartScenarioInPlace(cp, "WORLD_HUMAN_STAND_IMPATIENT", 0, true)
+                    -- Random idle animation for variety
+                    local randomAnim = idleAnims[math.random(1, #idleAnims)]
+                    TaskStartScenarioInPlace(cp, randomAnim, 0, true)
                 end
 
                 -- unfreeze & toast (robust release)
