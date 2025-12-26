@@ -393,6 +393,21 @@ Config.RaceVehicles = {
     { label = "2023 WRC i20",      model = "2023WRCI20"  },
     { label = "WRC 2006",          model = "WRC2006"     },
     { label = "Yaris WRC",         model = "YarisWRC"    },
+
+    -- Vans (Best versions only)
+    { label = "Youga Custom",      model = "youga4"      },  -- Best Youga version
+    { label = "Speedo Custom",     model = "speedo5"     },  -- Best Speedo version
+    { label = "Moonbeam Custom",   model = "moonbeam2"   },  -- Lowrider van
+    { label = "Surfer Custom",     model = "surfer3"     },  -- Best VW bus style
+    { label = "Paradise",          model = "paradise"    },  -- Hippie van
+
+    -- Trucks (Best versions only)
+    { label = "Yosemite 1500",     model = "yosemite1500"},  -- Best Yosemite version
+    { label = "Sandking XL",       model = "sandking"    },  -- Lifted monster truck
+    { label = "Kamacho",           model = "kamacho"     },  -- Jeep Gladiator style
+    { label = "Riata",             model = "riata"       },  -- Ford Raptor style
+    { label = "Contender",         model = "contender"   },  -- Sport utility truck
+    { label = "Guardian",          model = "guardian"    },  -- Heavy duty truck
 }
 
 --- GRID SPAWN POINTS
