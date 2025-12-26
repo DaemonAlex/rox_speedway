@@ -408,6 +408,47 @@ Config.RaceVehicles = {
     { label = "Riata",             model = "riata"       },  -- Ford Raptor style
     { label = "Contender",         model = "contender"   },  -- Sport utility truck
     { label = "Guardian",          model = "guardian"    },  -- Heavy duty truck
+
+    -- Motorcycles - Sport Bikes (Best versions only)
+    { label = "Hakuchou Drag",     model = "hakuchou2"   },  -- Fastest bike in game
+    { label = "Bati 801RR",        model = "bati2"       },  -- Best Bati version
+    { label = "Shinobi",           model = "shinobi"     },  -- The Contract DLC
+    { label = "Reever",            model = "reever"      },  -- The Contract DLC
+    { label = "Akuma",             model = "akuma"       },  -- Classic fast bike
+    { label = "Double T",          model = "double"      },  -- Sport bike
+    { label = "Carbon RS",         model = "carbonrs"    },  -- Ducati style
+    { label = "PCJ-600",           model = "pcj"         },  -- Classic sport
+    { label = "Nemesis",           model = "nemesis"     },  -- Lightweight sport
+    { label = "Vindicator",        model = "vindicator"  },  -- Electric sport
+    { label = "Thrust",            model = "thrust"      },  -- Sport bike
+    { label = "Vortex",            model = "vortex"      },  -- Sport bike
+    { label = "Ruffian",           model = "ruffian"     },  -- Naked bike
+
+    -- Motorcycles - Cruisers/Choppers (Best versions only)
+    { label = "Daemon Custom",     model = "daemon2"     },  -- Best Daemon version
+    { label = "Hexer",             model = "hexer"       },  -- Classic chopper
+    { label = "Nightblade",        model = "nightblade"  },  -- Cruiser
+    { label = "Innovation",        model = "innovation"  },  -- Bobber style
+    { label = "Wolfsbane",         model = "wolfsbane"   },  -- Chopper
+    { label = "Gargoyle",          model = "gargoyle"    },  -- Rat chopper
+    { label = "Avarus",            model = "avarus"      },  -- Classic chopper
+    { label = "Zombie Chopper",    model = "zombieb"     },  -- Best Zombie version
+    { label = "Sanctus",           model = "sanctus"     },  -- Skull chopper
+    { label = "Diablous Custom",   model = "diablous2"   },  -- Best Diablous version
+
+    -- Motorcycles - Dirt/Off-road (Best versions only)
+    { label = "Manchez Scout",     model = "manchez3"    },  -- Best Manchez version
+    { label = "BF400",             model = "bf400"       },  -- Dirt bike
+    { label = "Enduro",            model = "enduro"      },  -- Enduro bike
+    { label = "Cliffhanger",       model = "cliffhanger" },  -- Trials bike
+
+    -- Motorcycles - Other
+    { label = "Bagger",            model = "bagger"      },  -- Touring bike
+    { label = "Sovereign",         model = "sovereign"   },  -- Police cruiser style
+    { label = "FCR Custom",        model = "fcr2"        },  -- Best FCR version (scrambler)
+    { label = "Chimera",           model = "chimera"     },  -- Trike
+    { label = "Esskey",            model = "esskey"      },  -- Classic/vintage
+    { label = "Powersurge",        model = "powersurge"  },  -- Electric bike
 }
 
 --- GRID SPAWN POINTS
