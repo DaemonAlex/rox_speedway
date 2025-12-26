@@ -357,7 +357,6 @@ Config.RaceVehicles = {
     { label = "Deveste Eight",     model = "deveste"     },  -- Fastest top speed
     { label = "Vagner",            model = "vagner"      },  -- Best handling super
     { label = "Thrax",             model = "thrax"       },  -- Bugatti style
-    { label = "Zentorno",          model = "zentorno"    },  -- Classic favorite
     { label = "Cyclone",           model = "cyclone"     },  -- Best acceleration (electric)
     { label = "Ignus",             model = "ignus"       },  -- The Contract DLC
     { label = "Zeno",              model = "zeno"        },  -- The Contract DLC
