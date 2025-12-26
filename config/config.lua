@@ -349,64 +349,51 @@ Config.TrackProps = {
     ["Long_Track"]  = {},
 }
 
---- VEHICLE OPTIONS
+--- VEHICLE OPTIONS (Best version of each car line - no duplicates)
 Config.RaceVehicles = {
-    -- Super Cars
-    { label = "Krieger",           model = "krieger"     },
-    { label = "Emerus",            model = "emerus"      },
-    { label = "Thrax",             model = "thrax"       },
-    { label = "Deveste Eight",     model = "deveste"     },
-    { label = "S80RR",             model = "s80"         },
-    { label = "Vagner",            model = "vagner"      },
-    { label = "T20",               model = "t20"         },
-    { label = "Zentorno",          model = "zentorno"    },
-    { label = "Turismo R",         model = "turismor"    },
-    { label = "XA-21",             model = "xa21"        },
-    { label = "Entity XF",         model = "entityxf"    },
-    { label = "Cyclone",           model = "cyclone"     },
-    { label = "X80 Proto",         model = "prototipo"   },
-    { label = "Ignus",             model = "ignus"       },
-    { label = "Zeno",              model = "zeno"        },
-    { label = "Champion",          model = "champion"    },
-    { label = "Pipistrello",       model = "pipistrello" },
-    { label = "Turismo Omaggio",   model = "turismo3"    },
+    -- Super Cars (Top Tier)
+    { label = "Krieger",           model = "krieger"     },  -- Best all-rounder super
+    { label = "Emerus",            model = "emerus"      },  -- Top lap time
+    { label = "Deveste Eight",     model = "deveste"     },  -- Fastest top speed
+    { label = "Vagner",            model = "vagner"      },  -- Best handling super
+    { label = "Thrax",             model = "thrax"       },  -- Bugatti style
+    { label = "Zentorno",          model = "zentorno"    },  -- Classic favorite
+    { label = "Cyclone",           model = "cyclone"     },  -- Best acceleration (electric)
+    { label = "Ignus",             model = "ignus"       },  -- The Contract DLC
+    { label = "Zeno",              model = "zeno"        },  -- The Contract DLC
+    { label = "Turismo Omaggio",   model = "turismo3"    },  -- Best Turismo version
 
-    -- Sports Cars (Los Santos Tuners)
-    { label = "Calico GTF",        model = "calico"      },
-    { label = "Jester RR",         model = "jester4"     },
-    { label = "Vectre",            model = "vectre"      },
-    { label = "Growler",           model = "growler"     },
-    { label = "Comet S2",          model = "comet6"      },
-    { label = "Euros",             model = "euros"       },
-    { label = "ZR350",             model = "zr350"       },
-    { label = "Cypher",            model = "cypher"      },
-    { label = "RT3000",            model = "rt3000"      },
-    { label = "Remus",             model = "remus"       },
-    { label = "Futo GTX",          model = "futo2"       },
-    { label = "Sultan RS Classic", model = "sultan3"     },
-    { label = "Dominator GTX",     model = "dominator7"  },
-    { label = "Tailgater S",       model = "tailgater2"  },
+    -- Los Santos Tuners (JDM/Street)
+    { label = "Calico GTF",        model = "calico"      },  -- Fastest tuner
+    { label = "Jester RR",         model = "jester4"     },  -- Best Jester version
+    { label = "Vectre",            model = "vectre"      },  -- Great handling
+    { label = "Comet S2",          model = "comet6"      },  -- Best Comet version
+    { label = "Euros",             model = "euros"       },  -- 350Z style
+    { label = "ZR350",             model = "zr350"       },  -- RX-7 style
+    { label = "Cypher",            model = "cypher"      },  -- BMW M2 style
+    { label = "Sultan RS Classic", model = "sultan3"     },  -- Best Sultan version
+    { label = "Futo GTX",          model = "futo2"       },  -- Best Futo version
 
-    -- Top Sports Cars
-    { label = "Pariah",            model = "pariah"      },
-    { label = "Itali GTO",         model = "italigto"    },
-    { label = "Itali RSX",         model = "italirsx"    },
-    { label = "Neon",              model = "neon"        },
-    { label = "Schlagen GT",       model = "schlagen"    },
-    { label = "Comet SR",          model = "comet5"      },
+    -- Sports Cars (Top Performers)
+    { label = "Pariah",            model = "pariah"      },  -- Fastest sports car
+    { label = "Itali GTO",         model = "italigto"    },  -- Ferrari 812 style
+    { label = "Neon",              model = "neon"        },  -- Tesla style (electric)
+    { label = "Schlagen GT",       model = "schlagen"    },  -- AMG GT style
 
-    -- Muscle (for variety)
-    { label = "Dominator GT",      model = "dominator9"  },
-    { label = "Gauntlet Hellfire", model = "gauntlet4"   },
-    { label = "Buffalo STX",       model = "buffalo4"    },
+    -- Muscle (American Power)
+    { label = "Dominator GT",      model = "dominator9"  },  -- Best Dominator version
+    { label = "Gauntlet Hellfire", model = "gauntlet4"   },  -- Best Gauntlet version
+    { label = "Buffalo STX",       model = "buffalo4"    },  -- Best Buffalo version
 
-    -- Rally/WRC (custom vehicles if installed)
-    { label = "Omnis",             model = "omnis"       },
-    { label = "GB200",             model = "gb200"       },
-    { label = "Tropos Rallye",     model = "tropos"      },
-    { label = "2023WRCI20",        model = "2023WRCI20"  },
-    { label = "WRC2006",           model = "WRC2006"     },
-    { label = "YarisWRC",          model = "YarisWRC"    },
+    -- Rally (Dirt/Mixed Surface)
+    { label = "Omnis",             model = "omnis"       },  -- Lancia Delta style
+    { label = "GB200",             model = "gb200"       },  -- Ford RS200 style
+    { label = "Tropos Rallye",     model = "tropos"      },  -- Stratos style
+
+    -- Custom WRC (if installed on server)
+    { label = "2023 WRC i20",      model = "2023WRCI20"  },
+    { label = "WRC 2006",          model = "WRC2006"     },
+    { label = "Yaris WRC",         model = "YarisWRC"    },
 }
 
 --- GRID SPAWN POINTS
