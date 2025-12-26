@@ -187,6 +187,12 @@ Config.RankingInvert = false  -- Invert position display if reversed
 - **Pit Crew Polish** - Configurable timing, random idle animations, smoother movements
 - **Segment Hints** - Added for all tracks to improve position tracking on curves
 - **qs-fuelstations Support** - Added compatibility for Quasar fuel system
+- **Expanded Vehicle List** - 50+ vanilla GTA vehicles including:
+  - Super cars (Krieger, Emerus, Thrax, Zentorno, etc.)
+  - Los Santos Tuners (Calico GTF, Jester RR, ZR350, etc.)
+  - Top Sports cars (Pariah, Itali GTO, Neon, etc.)
+  - Muscle cars (Dominator GT, Gauntlet Hellfire, etc.)
+  - Rally cars (Omnis, GB200, Tropos Rallye)
 
 ### Previous Updates
 - Bug fix: Prevent lobby/race creation when active

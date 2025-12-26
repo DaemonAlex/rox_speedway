@@ -351,13 +351,62 @@ Config.TrackProps = {
 
 --- VEHICLE OPTIONS
 Config.RaceVehicles = {
-    { label = "Sultan RS",       model = "sultanrs"    },
-    { label = "Elegy RH8",       model = "elegy"      },
-    { label = "Buffalo",         model = "buffalo"    },
-    { label = "Kuruma",          model = "kuruma"     },
-    { label = "2023WRCI20",      model = "2023WRCI20" },
-    { label = "WRC2006",         model = "WRC2006"    },
-    { label = "YarisWRC",        model = "YarisWRC"   },
+    -- Super Cars
+    { label = "Krieger",           model = "krieger"     },
+    { label = "Emerus",            model = "emerus"      },
+    { label = "Thrax",             model = "thrax"       },
+    { label = "Deveste Eight",     model = "deveste"     },
+    { label = "S80RR",             model = "s80"         },
+    { label = "Vagner",            model = "vagner"      },
+    { label = "T20",               model = "t20"         },
+    { label = "Zentorno",          model = "zentorno"    },
+    { label = "Turismo R",         model = "turismor"    },
+    { label = "XA-21",             model = "xa21"        },
+    { label = "Entity XF",         model = "entityxf"    },
+    { label = "Cyclone",           model = "cyclone"     },
+    { label = "X80 Proto",         model = "prototipo"   },
+    { label = "Ignus",             model = "ignus"       },
+    { label = "Zeno",              model = "zeno"        },
+    { label = "Champion",          model = "champion"    },
+    { label = "Pipistrello",       model = "pipistrello" },
+    { label = "Turismo Omaggio",   model = "turismo3"    },
+
+    -- Sports Cars (Los Santos Tuners)
+    { label = "Calico GTF",        model = "calico"      },
+    { label = "Jester RR",         model = "jester4"     },
+    { label = "Vectre",            model = "vectre"      },
+    { label = "Growler",           model = "growler"     },
+    { label = "Comet S2",          model = "comet6"      },
+    { label = "Euros",             model = "euros"       },
+    { label = "ZR350",             model = "zr350"       },
+    { label = "Cypher",            model = "cypher"      },
+    { label = "RT3000",            model = "rt3000"      },
+    { label = "Remus",             model = "remus"       },
+    { label = "Futo GTX",          model = "futo2"       },
+    { label = "Sultan RS Classic", model = "sultan3"     },
+    { label = "Dominator GTX",     model = "dominator7"  },
+    { label = "Tailgater S",       model = "tailgater2"  },
+
+    -- Top Sports Cars
+    { label = "Pariah",            model = "pariah"      },
+    { label = "Itali GTO",         model = "italigto"    },
+    { label = "Itali RSX",         model = "italirsx"    },
+    { label = "Neon",              model = "neon"        },
+    { label = "Schlagen GT",       model = "schlagen"    },
+    { label = "Comet SR",          model = "comet5"      },
+
+    -- Muscle (for variety)
+    { label = "Dominator GT",      model = "dominator9"  },
+    { label = "Gauntlet Hellfire", model = "gauntlet4"   },
+    { label = "Buffalo STX",       model = "buffalo4"    },
+
+    -- Rally/WRC (custom vehicles if installed)
+    { label = "Omnis",             model = "omnis"       },
+    { label = "GB200",             model = "gb200"       },
+    { label = "Tropos Rallye",     model = "tropos"      },
+    { label = "2023WRCI20",        model = "2023WRCI20"  },
+    { label = "WRC2006",           model = "WRC2006"     },
+    { label = "YarisWRC",          model = "YarisWRC"    },
 }
 
 --- GRID SPAWN POINTS
