@@ -9,7 +9,7 @@ Multiplayer race system with dynamic lobbies, countdown, laps & vehicle selectio
 - **QBCore Framework** compatible
 - **Dual Target System Support** - Works with both `ox_target` and `qb-target`
 - **Notification System** - Supports `okokNotify`, `ox_lib`, or `rtx_notify`
-- **Auto-detects Fuel System** - LegacyFuel, cdn-fuel, ox_fuel, okokGasStation, or lc_fuel
+- **Auto-detects Fuel System** - LegacyFuel, cdn-fuel, ox_fuel, okokGasStation, lc_fuel, or qs-fuelstations
 - **Checkpoint System** - Spheres & poly-zone finish line for anti-cheat and lap detection
 - **Live Position HUD** - Real-time driver position ranking during races
 - **Lobby System** - Create/join custom lobbies with full management
@@ -186,6 +186,7 @@ Config.RankingInvert = false  -- Invert position display if reversed
 - **Full Track Configurations** - All 4 tracks now have proper coordinates
 - **Pit Crew Polish** - Configurable timing, random idle animations, smoother movements
 - **Segment Hints** - Added for all tracks to improve position tracking on curves
+- **qs-fuelstations Support** - Added compatibility for Quasar fuel system
 
 ### Previous Updates
 - Bug fix: Prevent lobby/race creation when active

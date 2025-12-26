@@ -6,6 +6,7 @@ local FuelAPIs = {
   { name = "cdn-fuel" },
   { name = "okokGasStation" },
   { name = "lc_fuel" },
+  { name = "qs-fuelstations" },
 }
 
 local activeSetters = {}
@@ -48,6 +49,15 @@ CreateThread(function()
           pcall(function() exports['LegacyFuel']:SetFuel(veh, lvl) end)
         end)
         print("[ROX-Speedway] Fuel integration: LegacyFuel (SetFuel) detected [explicit]")
+      end
+      -- Explicit handling for qs-fuelstations
+      if api.name == 'qs-fuelstations' then
+        ok = true
+        table.insert(activeSetters, function(veh, lvl)
+          -- qs-fuelstations uses SetFuel export
+          pcall(function() exports['qs-fuelstations']:SetFuel(veh, lvl) end)
+        end)
+        print("[ROX-Speedway] Fuel integration: qs-fuelstations (SetFuel) detected [explicit]")
       end
       if not ok then
         ok = tryRegister(api.name)
