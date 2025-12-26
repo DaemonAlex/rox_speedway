@@ -1,241 +1,222 @@
-# 🏁 ROX_SPEEDWAY – Custom Race Lobby System  
+# ROX_SPEEDWAY - Custom Race Lobby System
+
 _Originally based on [KOA_ROX_SPEEDWAY by MaxSuperTech](https://github.com/MaxSuperTech/max_rox_speedway)_
 
-🔥 Multiplayer race system with dynamic lobbies, countdown, laps & vehicle selection!
+Multiplayer race system with dynamic lobbies, countdown, laps & vehicle selection for FiveM!
 
-## 🇺🇸 ENGLISH
+## Features
 
-### Features
-- For **qb-core** only  
-- Uses **qb-target** only (no ox_target support)  
-- **Notification system** supports **okokNotify**, **ox_lib**, or **rtx_notify**  
-- **Auto-detects fuel system** (LegacyFuel, cdn-fuel, ox_fuel, okokGasStation, or lc_fuel)  
-- **Checkpoint spheres** & **poly-zone finish line** for anti-cheat and lap detection  
-- **Driver position HUD**, live on-the-fly ranking  
-- Create / join custom lobbies  
-- Track type & number of laps selection  
-- Vehicle selection per player  
-- Countdown with sound and GTA-style scaleform  
-- Lap tracking system  
-- Finish ranking screen with times  
-- Lobby management (start, leave, close)  
-- Full client-server flow (race lifecycle)  
-- Clean separation with ox_lib, localized texts  
-- **Optional “Raceway Leaderboard Display” integration by Glitchdetector** Link below in Notes
+- **QBCore Framework** compatible
+- **Dual Target System Support** - Works with both `ox_target` and `qb-target`
+- **Notification System** - Supports `okokNotify`, `ox_lib`, or `rtx_notify`
+- **Auto-detects Fuel System** - LegacyFuel, cdn-fuel, ox_fuel, okokGasStation, or lc_fuel
+- **Checkpoint System** - Spheres & poly-zone finish line for anti-cheat and lap detection
+- **Live Position HUD** - Real-time driver position ranking during races
+- **Lobby System** - Create/join custom lobbies with full management
+- **Track Selection** - Multiple track layouts with configurable laps
+- **Vehicle Selection** - Per-player vehicle choice from configured options
+- **Countdown System** - With sound and GTA-style scaleform
+- **Lap Tracking** - Full lap tracking with finish ranking screen
+- **Pit Crew System** - Animated NPC pit crews with refueling and repairs
+- **AMIR Leaderboard Integration** - Optional Raceway Leaderboard Display support
 
-### Work In Progress
-- **Driver position ranking system & HUD refinements**
-- **Pit Crew** NPC animation refinements
-- **Finish setting coords for remaining tracks**
+## Available Tracks
 
-### Notes
+| Track | Checkpoints | Description |
+|-------|-------------|-------------|
+| Short_Track | 3 | Quick inner oval - fastest laps |
+| Drift_Track | 3 | Extended route with wide sweeping turns |
+| Speed_Track | 4 | Outer oval for high-speed runs |
+| Long_Track | 5 | Full circuit combining all sections |
 
-**For now only the short track is fully setup**
-**Race Start Delay:**
-You can now configure the race start countdown delay in `config/config.lua`:
+All tracks include segment hints for accurate position tracking on curves.
+
+## Installation
+
+1. Ensure you have the required dependencies:
+   - `ox_lib`
+   - `qb-core`
+   - `oxmysql`
+   - Either `ox_target` OR `qb-target`
+
+2. Add the resource to your server resources folder
+
+3. Add to your `server.cfg`:
+   ```
+   ensure rox_speedway
+   ```
+
+4. Configure `config/config.lua` to your preferences
+
+## Configuration
+
+### Target System
+
+Choose your target system in `config/config.lua`:
 
 ```lua
-Config.RaceStartDelay = 10 -- Default countdown is 10 seconds
+Config.TargetSystem = 'ox_target'  -- or 'qb-target'
 ```
 
-Players generally prefer 10 seconds or less. Adjust as needed for your server.
+### Race Settings
 
-### AMIR Leaderboard (optional)
+```lua
+Config.RaceStartDelay = 10      -- Countdown delay in seconds
+Config.ProgressTickMs = 150     -- Position update frequency (75-200 recommended)
+Config.DistanceUseNoseCorners = true  -- Better position detection on curves
+```
 
-If you use Glitchdetector's Raceway Leaderboard Display, this resource can drive it live with the same order as the HUD.
+### Notification Provider
+
+```lua
+Config.NotificationProvider = "ox_lib"  -- "ox_lib", "okokNotify", or "rtx_notify"
+```
+
+### Pit Stop Timing
+
+Customize pit crew behavior for realism vs speed:
+
+```lua
+Config.PitStopTiming = {
+    crewWalkSpeed    = 2.0,     -- 1.0 = walk, 2.0 = jog, 3.0+ = run
+    refuelSteps      = 15,      -- Fuel fill increments (more = smoother)
+    refuelStepMs     = 200,     -- Milliseconds per step
+    repairDuration   = 3000,    -- Repair animation duration
+    approachTimeout  = 8000,    -- Max wait for crew approach
+    returnTimeout    = 15000,   -- Max wait for crew return
+}
+```
+
+### Pit Crew Idle Animations
+
+Add variety to pit crew idle behavior:
+
+```lua
+Config.PitCrewIdleAnims = {
+    "WORLD_HUMAN_STAND_IMPATIENT",
+    "WORLD_HUMAN_AA_SMOKE",
+    "WORLD_HUMAN_CLIPBOARD",
+    "WORLD_HUMAN_DRINKING",
+}
+```
+
+### AMIR Leaderboard (Optional)
+
+If you use Glitchdetector's Raceway Leaderboard Display, this resource can drive it live:
 
 - Repo: [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard)
-- Enable in `config/config.lua` via `Config.Leaderboard.enabled = true`
-- Title shows leader's lap like `2/3`
-
-Config section (excerpt):
 
 ```lua
 Config.Leaderboard = {
-  enabled = true,
-  updateIntervalMs = 1000,   -- push cadence; lower can cause flicker
-  toggleIntervalMs = 2000,   -- how often to flip Names <-> Times
-  viewMode = "toggle",       -- "toggle" or "names" ("times" is not supported alone)
-  timeMode = "total",        -- how Times are computed when shown: "total" or "lap"
+    enabled = true,
+    updateIntervalMs = 1000,   -- Push cadence (lower can cause flicker)
+    toggleIntervalMs = 2000,   -- Flip between Names <-> Times
+    viewMode = "toggle",       -- "toggle" or "names"
+    timeMode = "total",        -- "total" race time or "lap" time
 }
 ```
 
-Modes:
+**Runtime Commands:**
+- Chat: `/lb names` or `/lb toggle`
+- Console: `lb names <LobbyName>` or `lb toggle <LobbyName>`
 
-- names: always shows player names (stable, minimal updates)
-- toggle: flips between Names and Times every `toggleIntervalMs`
-  - Times lines keep the same order as the HUD and are in milliseconds (AMIR formats to MM:SS)
-  - `timeMode` controls whether Times are total race time so far or current lap time
+## Adding Custom Tracks
 
-Runtime override (host/admin):
-
-- In chat: `/lb names` or `/lb toggle`
-- From server console: `lb names <LobbyName>` or `lb toggle <LobbyName>`
-
-Flicker avoidance:
-
-- The server only sends AMIR updates on actual content changes (order/lap title) or when the toggle flips, which prevents the board from flashing.
-
-🛠️ Contributions & feedback welcome!
-
----
-
-
-## 🇫🇷 FRANÇAIS
-
-### Fonctionnalités
-- Pour **qb-core** uniquement  
-- Utilise exclusivement **qb-target** (pas de support ox_target)  
-- **Système de notifications** compatible **okokNotify**, **ox_lib** ou **rtx_notify**  
-- **Détection automatique du système de carburant** (LegacyFuel, cdn-fuel, ox_fuel, okokGasStation ou lc_fuel)  
-- **Sphères de checkpoints** & **zone poly** pour la ligne d’arrivée  
-- **HUD de position des pilotes**, classement en temps réel  
-- Création / rejoindre de lobbies personnalisés  
-- Sélection du type de circuit et du nombre de tours  
-- Sélection du véhicule par joueur  
-- Compte à rebours avec son et scaleform style GTA  
-- Suivi des tours  
-- Écran de classement final avec temps  
-- Gestion des lobbies (démarrer, quitter, fermer)  
-- Flux complet client-serveur (cycle de vie de la course)  
-- Texte localisé avec ox_lib  
-- **Intégration optionnelle de “Raceway Leaderboard Display” par Glitchdetector** Lien ci-dessous dans Remarques
-
-### En cours
-- **Affichage du classement des pilotes & améliorations HUD**  
-- Améliorations des animations des PNJ de l'équipe de stand
-- **Finir de définir les coordonnées pour les autres circuits**
-
-### Remarques
-
-**Pour l’instant, seul le circuit court est entièrement configuré**
-**Délai de départ de la course :**
-Vous pouvez maintenant configurer le délai du compte à rebours dans `config/config.lua` :
+Define checkpoints in `config/config.lua`:
 
 ```lua
-Config.RaceStartDelay = 10 -- Le compte à rebours par défaut est de 10 secondes
+Config.Checkpoints = {
+    My_Custom_Track = {
+        vector3(x1, y1, z1),  -- CP1
+        vector3(x2, y2, z2),  -- CP2
+        vector3(x3, y3, z3),  -- CP3
+    },
+}
 ```
 
-Les joueurs préfèrent généralement 10 secondes ou moins. Ajustez selon vos besoins pour votre serveur.
+Add segment hints for curves (optional but recommended):
 
+```lua
+Config.SegmentHints = {
+    My_Custom_Track = {
+        [0] = {  -- Start -> CP1
+            vector3(x, y, z),  -- Hint points along the curve
+        },
+        [1] = {  -- CP1 -> CP2
+            vector3(x, y, z),
+        },
+    },
+}
+```
+
+## Pit Crew Zones
+
+Configure pit stop locations:
+
+```lua
+Config.PitCrewZones = {
+    {
+        coords = vector3(-2865.45, 8113.30, 43.74),
+        heading = 180.0,
+        radius = 6.0
+    },
+}
+```
+
+## Debug Options
+
+```lua
+Config.DebugPrints = false  -- Console debug logs
+Config.ZoneDebug = false    -- Visual zone markers
+Config.RankingInvert = false  -- Invert position display if reversed
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/speedway_cleanup` | Manual cleanup of track props and zones |
+| `/lb names` | Set leaderboard to names mode |
+| `/lb toggle` | Set leaderboard to toggle mode |
+
+## Changelog
+
+### Latest Update
+- **ox_target Support** - Now works with both ox_target and qb-target
+- **Full Track Configurations** - All 4 tracks now have proper coordinates
+- **Pit Crew Polish** - Configurable timing, random idle animations, smoother movements
+- **Segment Hints** - Added for all tracks to improve position tracking on curves
+
+### Previous Updates
+- Bug fix: Prevent lobby/race creation when active
+- Block joining after race start
+- Reliable fuel sync across different fuel scripts
+- Track prop and zone cleanup improvements
+- LegacyFuel compatibility fixes
+
+## Dependencies
+
+**Required:**
+- [ox_lib](https://github.com/overextended/ox_lib)
+- [qb-core](https://github.com/qbcore-framework/qb-core)
+- [oxmysql](https://github.com/overextended/oxmysql)
+
+**One of:**
+- [ox_target](https://github.com/overextended/ox_target) OR
+- [qb-target](https://github.com/qbcore-framework/qb-target)
+
+**Optional:**
 - [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard)
 
-### AMIR Leaderboard (optionnel)
+## Credits
 
-Si vous utilisez l’affichage Raceway Leaderboard de Glitchdetector, cette ressource peut le piloter en direct avec le même ordre que le HUD.
+- Original script by [MaxSuperTech](https://github.com/MaxSuperTech/max_rox_speedway)
+- Modified and enhanced by DrCannabis / DaemonAlex
 
-- Repo : [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard)
-- Activez dans `config/config.lua` via `Config.Leaderboard.enabled = true`
-- Le titre affiche le tour du leader comme `2/3`
+## Contributing
 
-Extrait de configuration :
+Contributions & feedback welcome! Feel free to open issues or pull requests.
 
-```lua
-Config.Leaderboard = {
-  enabled = true,
-  updateIntervalMs = 1000,   -- cadence d’envoi ; plus bas peut provoquer du scintillement
-  toggleIntervalMs = 2000,   -- fréquence de bascule Noms <-> Temps
-  viewMode = "toggle",       -- "toggle" ou "names" ("times" seul non supporté)
-  timeMode = "total",        -- comment les temps sont calculés : "total" ou "lap"
-}
-```
+## License
 
-Modes :
-
-- names : affiche toujours les noms des joueurs (stable, mises à jour minimales)
-- toggle : alterne entre Noms et Temps toutes les `toggleIntervalMs`
-  - Les lignes Temps gardent le même ordre que le HUD et sont en millisecondes (AMIR formate en MM:SS)
-  - `timeMode` contrôle si les temps sont le total de la course ou le temps du tour actuel
-
-Commande runtime (hôte/admin) :
-
-- En chat : `/lb names` ou `/lb toggle`
-- Depuis la console serveur : `lb names <LobbyName>` ou `lb toggle <LobbyName>`
-
-Évitement du scintillement :
-
-- Le serveur n’envoie les mises à jour AMIR que lors de changements de contenu (ordre/titre de tour) ou lors d’une bascule, ce qui évite le clignotement du tableau.
-
-🛠️ Contributions & retours bienvenus !
-
----
-
-
-## 🇩🇪 DEUTSCH
-
-### Funktionen
-- Nur für **qb-core**  
-- Verwendet nur **qb-target** (keine ox_target-Unterstützung)  
-- **Benachrichtigungssystem** unterstützt **okokNotify**, **ox_lib** oder **rtx_notify**  
-- **Automatische Erkennung des Kraftstoffsystems** (LegacyFuel, cdn-fuel, ox_fuel, okokGasStation oder lc_fuel)  
-- **Checkpoint-Sphären** & **Poly-Zone** für Ziellinie/Anti-Cheat  
-- **Fahrerpositions-HUD** in Echtzeit  
-- Erstellen / Beitreten von benutzerdefinierten Lobbys  
-- Auswahl von Streckentyp & Rundenzahl  
-- Fahrzeugwahl pro Spieler  
-- Countdown mit Sound und GTA-Style-Scaleform  
-- Rundentracking  
-- Endplatzierungs-Bildschirm mit Zeiten  
-- Lobby-Verwaltung (Start, Verlassen, Schließen)  
-- Vollständiger Client-Server-Ablauf (Race Lifecycle)  
-- Saubere Trennung mit ox_lib, lokalisierte Texte  
-- **Optionale Integration der “Raceway Leaderboard Display” von Glitchdetector** Link unten in Hinweise
-
-### In Arbeit
-- **Fahrerpositions-Ranking & HUD-Verbesserungen**  
-- Verbesserungen der Animationen der Boxencrew-NPCs
-- **Zielkoordinaten für verbleibende Strecken festlegen**
-
-### Hinweise
-
-**Derzeit ist nur die Kurzstrecke vollständig eingerichtet**
-**Rennstart-Verzögerung:**
-Das Start-Countdown-Delay kann jetzt in `config/config.lua` konfiguriert werden:
-
-```lua
-Config.RaceStartDelay = 10 -- Standard-Countdown ist 10 Sekunden
-```
-
-Spieler bevorzugen meist 10 Sekunden oder weniger. Passe dies nach Bedarf für deinen Server an.
-
-- [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard)
-
-### AMIR Leaderboard (optional)
-
-Wenn du Glitchdetectors Raceway Leaderboard Display verwendest, kann dieses Script das Board live im selben HUD-Order steuern.
-
-- Repo: [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard)
-- Aktivierung in `config/config.lua` via `Config.Leaderboard.enabled = true`
-- Titel zeigt die Runde des Leaders wie `2/3`
-
-Konfigurationsauszug:
-
-```lua
-Config.Leaderboard = {
-  enabled = true,
-  updateIntervalMs = 1000,   -- Push-Intervall; niedriger kann Flackern verursachen
-  toggleIntervalMs = 2000,   -- Wie oft zwischen Namen <-> Zeiten gewechselt wird
-  viewMode = "toggle",       -- "toggle" oder "names" ("times" allein nicht unterstützt)
-  timeMode = "total",        -- wie die Zeiten berechnet werden: "total" oder "lap"
-}
-```
-
-Modi:
-
-- names: zeigt immer Spielernamen (stabil, minimale Updates)
-- toggle: wechselt alle `toggleIntervalMs` zwischen Namen und Zeiten
-  - Zeiten behalten die HUD-Reihenfolge und sind in Millisekunden (AMIR formatiert zu MM:SS)
-  - `timeMode` steuert, ob die Zeiten die gesamte bisherige Rennzeit oder die aktuelle Rundenzeit sind
-
-Laufzeit-Override (Host/Admin):
-
-- Im Chat: `/lb names` oder `/lb toggle`
-- Von der Serverkonsole: `lb names <LobbyName>` oder `lb toggle <LobbyName>`
-
-Flackervermeidung:
-
-- Der Server sendet AMIR-Updates nur bei tatsächlichen Inhaltsänderungen (Reihenfolge/Rundentitel) oder wenn der Toggle wechselt, um Flackern zu vermeiden.
-
-🛠️ Beiträge & Feedback willkommen!
-
----
+See original repository for license information.
