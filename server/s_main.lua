@@ -4,6 +4,8 @@ local Config    = require("config.config")
 local QBCore    = nil
 if GetResourceState('qb-core') == 'started' or GetResourceState('qb-core') == 'starting' then
   QBCore = exports['qb-core']:GetCoreObject()
+elseif GetResourceState('qbx_core') == 'started' or GetResourceState('qbx_core') == 'starting' then
+  QBCore = exports['qbx_core']:GetCoreObject()
 end
 local localeTable = require("locales." .. Config.Locale)
 local function locale(key, ...)

@@ -32,7 +32,7 @@ files {
 
 dependencies {
     'ox_lib',
-    -- Optional: 'qb-core' (used for character name plates; falls back to Rockstar name)
+    -- Optional: 'qb-core' or 'qbx_core' (used for character name plates; falls back to Rockstar name)
     -- Optional: target system - 'ox_target' or 'qb-target' (configure in config.lua)
 }
 
