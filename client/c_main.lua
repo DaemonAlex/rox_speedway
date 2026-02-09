@@ -575,6 +575,18 @@ RegisterNetEvent('speedway:client:createLobby', function()
         SpeedwayNotify(loc("lobby_exists"), "", "error")
         return
     end
+    -- Build race class options from config
+    local classOpts = {}
+    for key, cls in pairs(Config.RaceClasses) do
+        table.insert(classOpts, { value = key, label = cls.label .. " - " .. cls.description })
+    end
+    -- Sort so "Open Class" (All) is first
+    table.sort(classOpts, function(a, b)
+        if a.value == "All" then return true end
+        if b.value == "All" then return false end
+        return a.label < b.label
+    end)
+
     local dialog = lib.inputDialog(loc("create_lobby"), {
         { type = 'number', label = loc("number_of_laps"), required = true, min = 1, max = 10, default = 3 },
         { type = 'select', label = loc("select_track"),   required = true, default = 'Short_Track',
@@ -585,16 +597,18 @@ RegisterNetEvent('speedway:client:createLobby', function()
               { value = 'Long_Track',  label = loc("Long_Track")  },
           },
         },
+        { type = 'select', label = loc("select_class"), required = true, default = 'All', options = classOpts },
     })
     if not dialog then if Config.DebugPrints then print("[DEBUG] input dialog cancelled") end return end
 
-    local lapCount  = tonumber(dialog[1]) or 1
-    local trackType = dialog[2]
+    local lapCount   = tonumber(dialog[1]) or 1
+    local trackType  = dialog[2]
+    local raceClass  = dialog[3] or 'All'
     local lobbyName = GetPlayerName(PlayerId()) .. "_" .. math.random(1000,9999)
     if Config.DebugPrints then
-        print(string.format("[DEBUG] TriggerServerEvent speedway:createLobby: lobbyName=%s, trackType=%s, lapCount=%s", lobbyName, trackType, lapCount))
+        print(string.format("[DEBUG] TriggerServerEvent speedway:createLobby: lobbyName=%s, trackType=%s, lapCount=%s, raceClass=%s", lobbyName, trackType, lapCount, raceClass))
     end
-    TriggerServerEvent("speedway:createLobby", lobbyName, trackType, lapCount)
+    TriggerServerEvent("speedway:createLobby", lobbyName, trackType, lapCount, raceClass)
 end)
 
 RegisterNetEvent('speedway:client:joinLobby', function()
@@ -724,11 +738,30 @@ end)
 --------------------------------------------------------------------------------
 -- 11) VEHICLE SELECTION
 --------------------------------------------------------------------------------
-RegisterNetEvent("speedway:chooseVehicle", function(lobbyName)
+RegisterNetEvent("speedway:chooseVehicle", function(lobbyName, raceClass)
+    -- Filter vehicles by race class if specified
+    local allowedModels = nil
+    if raceClass and Config.RaceClasses[raceClass] and Config.RaceClasses[raceClass].vehicles then
+        allowedModels = {}
+        for _, m in ipairs(Config.RaceClasses[raceClass].vehicles) do
+            allowedModels[m:lower()] = true
+        end
+    end
+
     local opts = {}
     for _, v in ipairs(Config.RaceVehicles) do
-        table.insert(opts, { value = v.model, label = v.label })
+        if not allowedModels or allowedModels[v.model:lower()] then
+            table.insert(opts, { value = v.model, label = v.label })
+        end
     end
+
+    if #opts == 0 then
+        -- Fallback to all vehicles if class filter yields nothing
+        for _, v in ipairs(Config.RaceVehicles) do
+            table.insert(opts, { value = v.model, label = v.label })
+        end
+    end
+
     local dialog = lib.inputDialog(loc("choose_vehicle_title"), {
         { type = 'select', label = loc("choose_vehicle_label"), required = true, options = opts, default = opts[1].value },
     })
@@ -1053,3 +1086,55 @@ CreateThread(function()
         end
     end
 end)
+
+--------------------------------------------------------------------------------
+-- REWARD NOTIFICATIONS
+--------------------------------------------------------------------------------
+RegisterNetEvent('speedway:client:rewardNotify', function(data)
+    if data.positionPayout and data.positionPayout > 0 then
+        SpeedwayNotify("Speedway", loc("reward_cash", data.positionPayout, data.positionLabel or ""), "success", 5000)
+    end
+    if data.participation and data.participation > 0 then
+        SpeedwayNotify("Speedway", loc("reward_participation", data.participation), "inform", 4000)
+    end
+    if data.bestLapBonus and data.bestLapBonus > 0 then
+        SpeedwayNotify("Speedway", loc("reward_best_lap", data.bestLapBonus), "success", 5000)
+    end
+    if data.vehiclePrize then
+        SpeedwayNotify("Speedway", loc("reward_vehicle", data.vehiclePrize), "success", 8000)
+    end
+    if data.poolPayout and data.poolPayout > 0 then
+        SpeedwayNotify("Speedway", loc("prize_pool_payout", data.poolPayout), "success", 5000)
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- STATS DISPLAY
+--------------------------------------------------------------------------------
+RegisterNetEvent('speedway:client:statsNotify', function(data)
+    if data.newRecord then
+        SpeedwayNotify("Speedway", loc("stats_new_record", string.format("%.1f", data.newRecord / 1000)), "success", 6000)
+    end
+    if data.wins and data.totalRaces then
+        local bestStr = data.bestLap and string.format("%.1f", data.bestLap / 1000) or "N/A"
+        SpeedwayNotify("Speedway", loc("stats_summary", data.wins, data.totalRaces, bestStr), "inform", 8000)
+    end
+end)
+
+-- /racestats command to view personal stats
+RegisterCommand('racestats', function()
+    local stats = lib.callback.await('speedway:getPlayerStats', false)
+    if not stats then
+        SpeedwayNotify("Speedway", "No stats found.", "error", 3000)
+        return
+    end
+    local lines = { loc("stats_command_header") }
+    lines[#lines+1] = ("Races: %d | Wins: %d | Top 3: %d"):format(stats.total_races or 0, stats.wins or 0, stats.top3 or 0)
+    lines[#lines+1] = ("Total Earnings: $%d"):format(stats.total_earnings or 0)
+    if stats.best_laps then
+        for track, ms in pairs(stats.best_laps) do
+            lines[#lines+1] = ("%s Best: %.1fs"):format(track, ms / 1000)
+        end
+    end
+    SpeedwayNotify(loc("stats_command_header"), table.concat(lines, "\n"), "inform", 12000)
+end, false)

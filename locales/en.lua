@@ -48,4 +48,20 @@ return {
   blip_name                   = "Roxwood Speedway",
   lobby_label_template        = "{1} | {2} ({3} players)",
   keybind_interact_label      = "Speedway: Interact with Lobby Panel",
+  -- Race Classes
+  select_class                = "Select Vehicle Class",
+  -- Rewards
+  reward_cash                 = "You earned ${1} for finishing {2}!",
+  reward_best_lap             = "Best lap bonus: +${1}!",
+  reward_vehicle              = "Prize vehicle awarded: {1}! Check your garage.",
+  reward_participation        = "Participation reward: +${1}",
+  -- Entry Fees
+  entry_fee_charged           = "Entry fee: -${1}",
+  entry_fee_refunded          = "Entry fee refunded: +${1}",
+  entry_fee_insufficient      = "You need ${1} to enter this race.",
+  prize_pool_payout           = "Prize pool payout: +${1}!",
+  -- Stats
+  stats_summary               = "Stats: {1} wins / {2} races | Best lap: {3}s",
+  stats_new_record            = "NEW TRACK RECORD: {1}s!",
+  stats_command_header        = "Your Race Stats",
 }

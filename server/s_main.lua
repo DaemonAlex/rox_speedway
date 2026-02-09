@@ -40,6 +40,243 @@ local function table_count(tbl)
 end
 
 --------------------------------------------------------------------------------
+-- Database: auto-create stats table on resource start
+--------------------------------------------------------------------------------
+if Config.Stats and Config.Stats.enabled then
+  CreateThread(function()
+    MySQL.query.await([[
+      CREATE TABLE IF NOT EXISTS speedway_stats (
+        citizenid VARCHAR(50) NOT NULL,
+        total_races INT DEFAULT 0,
+        wins INT DEFAULT 0,
+        top3 INT DEFAULT 0,
+        total_earnings INT DEFAULT 0,
+        best_laps JSON DEFAULT '{}',
+        last_race TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (citizenid)
+      )
+    ]])
+    print('[Speedway] speedway_stats table ready.')
+  end)
+end
+
+--------------------------------------------------------------------------------
+-- Helper: get citizenid from server id
+--------------------------------------------------------------------------------
+local function GetCitizenId(pid)
+  if not QBCore then return nil end
+  local Player = QBCore.Functions.GetPlayer(pid)
+  if Player and Player.PlayerData then
+    return Player.PlayerData.citizenid
+  end
+  return nil
+end
+
+--------------------------------------------------------------------------------
+-- Rewards: grant money and prizes at race end
+--------------------------------------------------------------------------------
+local function GrantRewards(lob, results, lobbyName)
+  if not Config.Rewards or not Config.Rewards.enabled then return end
+  if not QBCore then return end
+
+  -- Find best lap across all players
+  local globalBestLap = math.huge
+  local bestLapPlayer = nil
+  for _, pid in ipairs(lob.players) do
+    for _, t in ipairs(lob.lapTimes[pid] or {}) do
+      if t < globalBestLap then
+        globalBestLap = t
+        bestLapPlayer = pid
+      end
+    end
+  end
+
+  for pos, entry in ipairs(results) do
+    local pid = entry.id
+    local Player = QBCore.Functions.GetPlayer(pid)
+    if Player then
+      local totalPayout = 0
+      local positionPayout = Config.Rewards.payouts[pos] or 0
+      local positionLabel = tostring(pos)
+      if pos == 1 then positionLabel = "1st"
+      elseif pos == 2 then positionLabel = "2nd"
+      elseif pos == 3 then positionLabel = "3rd"
+      else positionLabel = pos .. "th" end
+
+      -- Position payout
+      if positionPayout > 0 then
+        Player.Functions.AddMoney(Config.Rewards.moneyType, positionPayout, 'speedway-race')
+        totalPayout = totalPayout + positionPayout
+      end
+
+      -- Participation reward
+      local participation = Config.Rewards.participationReward or 0
+      if participation > 0 then
+        Player.Functions.AddMoney(Config.Rewards.moneyType, participation, 'speedway-participation')
+        totalPayout = totalPayout + participation
+      end
+
+      -- Best lap bonus
+      local bestLapBonus = 0
+      if pid == bestLapPlayer and Config.Rewards.bestLapBonus and Config.Rewards.bestLapBonus > 0 then
+        bestLapBonus = Config.Rewards.bestLapBonus
+        Player.Functions.AddMoney(Config.Rewards.moneyType, bestLapBonus, 'speedway-bestlap')
+        totalPayout = totalPayout + bestLapBonus
+      end
+
+      -- Vehicle prize for 1st place
+      local vehiclePrize = nil
+      if pos == 1 and Config.Rewards.vehiclePrize then
+        vehiclePrize = Config.Rewards.vehiclePrize
+        local cid = GetCitizenId(pid)
+        if cid then
+          MySQL.insert.await('INSERT INTO player_vehicles (license, citizenid, vehicle, hash, mods, plate, garage, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
+            GetPlayerIdentifierByType(pid, 'license') or '',
+            cid,
+            vehiclePrize,
+            tostring(joaat(vehiclePrize)),
+            '{}',
+            'PRIZE' .. math.random(100, 999),
+            Config.Rewards.vehiclePrizeGarage or 'pillboxgarage',
+            0
+          })
+        end
+      end
+
+      -- Notify client
+      TriggerClientEvent('speedway:client:rewardNotify', pid, {
+        positionPayout = positionPayout,
+        positionLabel = positionLabel,
+        participation = participation,
+        bestLapBonus = bestLapBonus,
+        vehiclePrize = vehiclePrize,
+        totalPayout = totalPayout,
+      })
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
+-- Entry Fee: distribute prize pool at race end
+--------------------------------------------------------------------------------
+local function DistributePrizePool(lob, results)
+  if not Config.EntryFee or not Config.EntryFee.enabled then return end
+  if not QBCore then return end
+  local pool = lob.prizePool or 0
+  if pool <= 0 then return end
+
+  for pos, entry in ipairs(results) do
+    local pct = Config.EntryFee.poolSplit[pos]
+    if pct and pct > 0 then
+      local payout = math.floor(pool * pct / 100)
+      if payout > 0 then
+        local Player = QBCore.Functions.GetPlayer(entry.id)
+        if Player then
+          Player.Functions.AddMoney(Config.EntryFee.moneyType or 'cash', payout, 'speedway-prizepool')
+          TriggerClientEvent('speedway:client:rewardNotify', entry.id, { poolPayout = payout })
+        end
+      end
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
+-- Stats: save race stats to database
+--------------------------------------------------------------------------------
+local function SaveRaceStats(pid, position, track, bestLap, earnings)
+  if not Config.Stats or not Config.Stats.enabled then return end
+  local cid = GetCitizenId(pid)
+  if not cid then return end
+
+  local isWin = position == 1 and 1 or 0
+  local isTop3 = position <= 3 and 1 or 0
+
+  -- Fetch existing best_laps JSON to merge
+  local existing = MySQL.scalar.await('SELECT best_laps FROM speedway_stats WHERE citizenid = ?', { cid })
+  local bestLaps = {}
+  if existing then
+    bestLaps = json.decode(existing) or {}
+  end
+
+  local newRecord = false
+  if bestLap and bestLap > 0 then
+    if not bestLaps[track] or bestLap < bestLaps[track] then
+      bestLaps[track] = bestLap
+      newRecord = true
+    end
+  end
+
+  MySQL.query.await([[
+    INSERT INTO speedway_stats (citizenid, total_races, wins, top3, total_earnings, best_laps, last_race)
+    VALUES (?, 1, ?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+      total_races = total_races + 1,
+      wins = wins + ?,
+      top3 = top3 + ?,
+      total_earnings = total_earnings + ?,
+      best_laps = ?,
+      last_race = NOW()
+  ]], { cid, isWin, isTop3, earnings or 0, json.encode(bestLaps), isWin, isTop3, earnings or 0, json.encode(bestLaps) })
+
+  -- Get updated stats to notify client
+  if Config.Stats.showAfterRace then
+    local row = MySQL.single.await('SELECT * FROM speedway_stats WHERE citizenid = ?', { cid })
+    if row then
+      local laps = json.decode(row.best_laps or '{}') or {}
+      TriggerClientEvent('speedway:client:statsNotify', pid, {
+        wins = row.wins,
+        totalRaces = row.total_races,
+        bestLap = laps[track],
+        newRecord = newRecord and bestLap or nil,
+      })
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
+-- Stats callback for /racestats command
+--------------------------------------------------------------------------------
+lib.callback.register('speedway:getPlayerStats', function(source)
+  local cid = GetCitizenId(source)
+  if not cid then return nil end
+  local row = MySQL.single.await('SELECT * FROM speedway_stats WHERE citizenid = ?', { cid })
+  if not row then return nil end
+  row.best_laps = json.decode(row.best_laps or '{}') or {}
+  return row
+end)
+
+--------------------------------------------------------------------------------
+-- Entry Fee: helper to charge/refund
+--------------------------------------------------------------------------------
+local function ChargeEntryFee(pid)
+  if not Config.EntryFee or not Config.EntryFee.enabled then return true end
+  if not QBCore then return true end
+  local Player = QBCore.Functions.GetPlayer(pid)
+  if not Player then return false end
+  local amount = Config.EntryFee.amount or 0
+  if amount <= 0 then return true end
+  local moneyType = Config.EntryFee.moneyType or 'cash'
+  if Player.Functions.GetMoney(moneyType) < amount then
+    ServerNotify(pid, 'Speedway', locale("entry_fee_insufficient", amount), 'error')
+    return false
+  end
+  Player.Functions.RemoveMoney(moneyType, amount, 'speedway-entryfee')
+  ServerNotify(pid, 'Speedway', locale("entry_fee_charged", amount), 'inform')
+  return true
+end
+
+local function RefundEntryFee(pid)
+  if not Config.EntryFee or not Config.EntryFee.enabled then return end
+  if not QBCore then return end
+  local Player = QBCore.Functions.GetPlayer(pid)
+  if not Player then return end
+  local amount = Config.EntryFee.amount or 0
+  if amount <= 0 then return end
+  Player.Functions.AddMoney(Config.EntryFee.moneyType or 'cash', amount, 'speedway-entryfee-refund')
+  ServerNotify(pid, 'Speedway', locale("entry_fee_refunded", amount), 'success')
+end
+
+--------------------------------------------------------------------------------
 -- lobby storage
 --------------------------------------------------------------------------------
 local lobbies        = {}    -- [lobbyName] = { owner, track, laps, players, ... }
@@ -181,8 +418,8 @@ end)
 --------------------------------------------------------------------------------
 -- CREATE LOBBY
 --------------------------------------------------------------------------------
-RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount)
-  print(string.format("[DEBUG] speedway:createLobby received: lobbyName=%s, trackType=%s, lapCount=%s, src=%s", lobbyName, trackType, lapCount, source))
+RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount, raceClass)
+  print(string.format("[DEBUG] speedway:createLobby received: lobbyName=%s, trackType=%s, lapCount=%s, raceClass=%s, src=%s", lobbyName, trackType, lapCount, tostring(raceClass), source))
   local src = source
   -- Prevent new lobby if any lobby is active
   if next(lobbies) ~= nil then
@@ -196,10 +433,16 @@ RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount
     return
   end
 
+  -- Charge entry fee to creator
+  if not ChargeEntryFee(src) then return end
+
+  local entryFeeAmount = (Config.EntryFee and Config.EntryFee.enabled) and (Config.EntryFee.amount or 0) or 0
+
   lobbies[lobbyName] = {
     owner              = src,
     track              = trackType,
     laps               = lapCount or 1,
+    raceClass          = raceClass or 'All',
     players            = { src },
     checkpointProgress = {},
     isStarted          = false,
@@ -208,6 +451,7 @@ RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount
     lapTimes           = {},
     startTime          = {},
     progress           = {},
+    prizePool          = entryFeeAmount,
   }
   print("[DEBUG] Lobby created: " .. lobbyName)
 
@@ -242,6 +486,11 @@ RegisterNetEvent("speedway:joinLobby", function(lobbyName)
   end
 
   if not table_contains(lobby.players, src) then
+    -- Charge entry fee before adding to lobby
+    if not ChargeEntryFee(src) then return end
+    local entryFeeAmount = (Config.EntryFee and Config.EntryFee.enabled) and (Config.EntryFee.amount or 0) or 0
+    lobby.prizePool = (lobby.prizePool or 0) + entryFeeAmount
+
     table.insert(lobby.players, src)
     -- BROADCAST who joined
     local playerName = GetPlayerName(src)
@@ -284,10 +533,20 @@ RegisterNetEvent("speedway:leaveLobby", function()
   for name, lobby in pairs(lobbies) do
     for i, id in ipairs(lobby.players) do
       if id == src then
+        -- Refund entry fee if race hasn't started
+        if not lobby.isStarted then
+          RefundEntryFee(src)
+          local entryFeeAmount = (Config.EntryFee and Config.EntryFee.enabled) and (Config.EntryFee.amount or 0) or 0
+          lobby.prizePool = math.max(0, (lobby.prizePool or 0) - entryFeeAmount)
+        end
+
         table.remove(lobby.players, i)
         if lobby.owner == src then
-          -- owner left → close lobby
+          -- owner left → close lobby, refund remaining players if race hasn't started
           for _, player in ipairs(lobby.players) do
+            if not lobby.isStarted then
+              RefundEntryFee(player)
+            end
             ServerNotify(player, 'Speedway', locale("lobby_closed_by_owner", name), 'warning')
             TriggerClientEvent("speedway:updateLobbyInfo", player, nil)
           end
@@ -454,7 +713,7 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
     end
   end)
   for _, pid in ipairs(lob.players) do
-    TriggerClientEvent("speedway:chooseVehicle", pid, lobbyName)
+    TriggerClientEvent("speedway:chooseVehicle", pid, lobbyName, lob.raceClass)
   end
 end)
 
@@ -738,10 +997,37 @@ RegisterNetEvent("speedway:lapPassed", function(lobbyName, forcedSrc)
         TriggerClientEvent("speedway:client:destroyprops", pid)
       end
 
+      -- Grant rewards (cash payouts, best lap bonus, vehicle prizes)
+      GrantRewards(lob, results, lobbyName)
+
+      -- Distribute entry fee prize pool
+      DistributePrizePool(lob, results)
+
+      -- Save persistent race stats for each player
+      for pos, entry in ipairs(results) do
+        local bestLap = math.huge
+        for _, t in ipairs(lob.lapTimes[entry.id] or {}) do
+          if t < bestLap then bestLap = t end
+        end
+        if bestLap == math.huge then bestLap = 0 end
+
+        -- Calculate total earnings for this player
+        local totalEarnings = 0
+        if Config.Rewards and Config.Rewards.enabled then
+          totalEarnings = totalEarnings + (Config.Rewards.payouts[pos] or 0) + (Config.Rewards.participationReward or 0)
+        end
+        if Config.EntryFee and Config.EntryFee.enabled and lob.prizePool then
+          local pct = Config.EntryFee.poolSplit[pos] or 0
+          totalEarnings = totalEarnings + math.floor((lob.prizePool * pct) / 100)
+        end
+
+        SaveRaceStats(entry.id, pos, lob.track, bestLap, totalEarnings)
+      end
+
       -- Race fully concluded: switch jumbotron back to IDLE for everyone
       TriggerClientEvent('rox_speedway:cam:broadcastOff', -1)
-  -- Reset leader tracking for this lobby
-  lob.lastLeader = -1
+      -- Reset leader tracking for this lobby
+      lob.lastLeader = -1
 
       lobbies[lobbyName] = nil
       TriggerClientEvent("speedway:setLobbyState", -1, next(lobbies) ~= nil)

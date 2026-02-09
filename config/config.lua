@@ -464,4 +464,79 @@ Config.FinishLine = {
     radius = 15.0,
 }
 
+--- REWARDS SYSTEM
+Config.Rewards = {
+    enabled = true,
+    moneyType = 'cash',              -- 'cash' or 'bank'
+    -- Position-based cash payouts
+    payouts = {
+        [1] = 5000,
+        [2] = 3000,
+        [3] = 1500,
+    },
+    participationReward = 500,       -- Everyone who finishes gets this
+    bestLapBonus = 1000,             -- Bonus for fastest lap in the race
+    -- 1st place prize vehicles (nil = no vehicle prize, set model name to enable)
+    vehiclePrize = nil,              -- e.g. 'krieger' — awarded to 1st place, saved to garage
+    vehiclePrizeGarage = 'pillboxgarage', -- which garage to store it in
+}
+
+--- ENTRY FEE / PRIZE POOL
+Config.EntryFee = {
+    enabled = false,                 -- Toggle entry fees on/off
+    amount = 1000,                   -- Cost to join a race
+    moneyType = 'cash',             -- 'cash' or 'bank'
+    -- Prize pool split (percentages, must total 100 or less)
+    poolSplit = {
+        [1] = 60,                    -- 1st gets 60% of pool
+        [2] = 30,                    -- 2nd gets 30%
+        [3] = 10,                    -- 3rd gets 10%
+    },
+}
+
+--- PERSISTENT RACE STATS
+Config.Stats = {
+    enabled = true,
+    showAfterRace = true,            -- Show personal stats summary after each race
+}
+
+--- RACE CLASSES
+Config.RaceClasses = {
+    All = {
+        label = "Open Class",
+        description = "Any vehicle allowed",
+        vehicles = nil,                -- nil = use full Config.RaceVehicles list
+    },
+    Super = {
+        label = "Super Cars",
+        description = "Top tier supercars only",
+        vehicles = { "krieger", "emerus", "deveste", "vagner", "thrax", "cyclone", "ignus", "zeno", "turismo3" },
+    },
+    Tuner = {
+        label = "Tuners / JDM",
+        description = "Los Santos Tuners class",
+        vehicles = { "calico", "jester4", "vectre", "comet6", "euros", "zr350", "cypher", "sultan3", "futo2" },
+    },
+    Muscle = {
+        label = "Muscle Cars",
+        description = "American muscle only",
+        vehicles = { "dominator9", "gauntlet4", "buffalo4" },
+    },
+    Bikes = {
+        label = "Motorcycles",
+        description = "Two wheels only",
+        vehicles = { "hakuchou2", "bati2", "shinobi", "reever", "akuma", "double", "carbonrs" },
+    },
+    Vans = {
+        label = "Vans & Trucks",
+        description = "Big vehicle chaos",
+        vehicles = { "youga4", "speedo5", "moonbeam2", "surfer3", "yosemite1500", "sandking", "kamacho", "riata" },
+    },
+    Rally = {
+        label = "Rally",
+        description = "Dirt and mixed surface specialists",
+        vehicles = { "omnis", "gb200", "tropos", "2023WRCI20", "WRC2006", "YarisWRC" },
+    },
+}
+
 return Config
