@@ -16,12 +16,14 @@ client_scripts {
   'client/c_customs.lua',    -- vehicle cosmetics & paints
   'client/c_function.lua',
   'client/c_main.lua',
-  'client/c_pit.lua',      -- pitstop logic
+  'client/c_pit.lua',        -- pitstop logic
+  'leaderboard/cl_leaderboard.lua', -- in-world LED scoreboard (bundled AMIR)
 }
 
 server_scripts {
   '@oxmysql/lib/MySQL.lua',
   'server/s_main.lua',
+  'leaderboard/sv_leaderboard.lua', -- leaderboard display logic + idle best-times
 }
 
 ui_page 'client/nui/timeout.html'
@@ -29,7 +31,15 @@ ui_page 'client/nui/timeout.html'
 files {
   'locales/*.lua',
   'client/nui/timeout.html',
+  'leaderboard/speedway.html',
+  'leaderboard/LCDMB___.TTF',
+  'leaderboard/ads/*.png',
 }
+
+-- Stream/map data for the physical LED sign (bundled from amir-leaderboard)
+file 'stream/def_amir_speedway.ytyp'
+data_file 'DLC_ITYP_REQUEST' 'stream/def_amir_speedway.ytyp'
+this_is_a_map 'yes'
 
 dependencies {
     'ox_lib',

@@ -40,6 +40,43 @@ local function table_count(tbl)
 end
 
 --------------------------------------------------------------------------------
+-- Precomputed lookup tables from Config (built once at load)
+--------------------------------------------------------------------------------
+local VALID_TRACKS = {}
+for k in pairs(Config.Checkpoints) do VALID_TRACKS[k] = true end
+
+local VALID_CLASSES = {}
+for k in pairs(Config.RaceClasses) do VALID_CLASSES[k] = true end
+
+local VALID_MODELS = {}
+for _, v in ipairs(Config.RaceVehicles) do VALID_MODELS[v.model:lower()] = true end
+
+--------------------------------------------------------------------------------
+-- Per-player event rate limiter (simple timestamp bucket)
+--------------------------------------------------------------------------------
+local _rlBuckets = {}
+local function RateLimit(src, event, ms)
+  local key = src .. event
+  local now = GetGameTimer()
+  if _rlBuckets[key] and (now - _rlBuckets[key]) < (ms or 500) then return true end
+  _rlBuckets[key] = now
+  return false
+end
+
+-- Refund cooldown tracker: prevents join-refund-rejoin cycling
+local _refundCD = {} -- [src] = timestamp
+
+-- Periodic cleanup of stale rate-limit / refund entries (every 5 min)
+CreateThread(function()
+  while true do
+    Wait(300000)
+    local now = GetGameTimer()
+    for k, t in pairs(_rlBuckets) do if now - t > 60000 then _rlBuckets[k] = nil end end
+    for k, t in pairs(_refundCD) do if now - t > 120000 then _refundCD[k] = nil end end
+  end
+end)
+
+--------------------------------------------------------------------------------
 -- Database: auto-create stats table on resource start
 --------------------------------------------------------------------------------
 if Config.Stats and Config.Stats.enabled then
@@ -419,16 +456,32 @@ end)
 -- CREATE LOBBY
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount, raceClass)
-  print(string.format("[DEBUG] speedway:createLobby received: lobbyName=%s, trackType=%s, lapCount=%s, raceClass=%s, src=%s", lobbyName, trackType, lapCount, tostring(raceClass), source))
   local src = source
+  if RateLimit(src, "createLobby", 2000) then return end
+
+  -- Validate lobbyName: must be a string, 1-50 chars, alphanumeric+underscore only
+  if type(lobbyName) ~= 'string' or #lobbyName < 1 or #lobbyName > 50 or lobbyName:find('[^%w_]') then return end
+  -- Validate trackType: must exist in config
+  if type(trackType) ~= 'string' or not VALID_TRACKS[trackType] then return end
+  -- Validate lapCount: integer 1-10
+  lapCount = tonumber(lapCount)
+  if not lapCount or lapCount ~= math.floor(lapCount) or lapCount < 1 or lapCount > 10 then return end
+  -- Validate raceClass: must exist in config, default to 'All'
+  if raceClass == nil then raceClass = 'All' end
+  if type(raceClass) ~= 'string' or not VALID_CLASSES[raceClass] then raceClass = 'All' end
+
+  if Config.DebugPrints then
+    print(string.format("[DEBUG] speedway:createLobby received: lobbyName=%s, trackType=%s, lapCount=%s, raceClass=%s, src=%s", lobbyName, trackType, lapCount, tostring(raceClass), src))
+  end
+
   -- Prevent new lobby if any lobby is active
   if next(lobbies) ~= nil then
-    print("[DEBUG] Cannot create lobby: another lobby is already active.")
+    if Config.DebugPrints then print("[DEBUG] Cannot create lobby: another lobby is already active.") end
     ServerNotify(src, 'Speedway', locale("lobby_exists"), 'error')
     return
   end
   if lobbies[lobbyName] then
-    print("[DEBUG] Lobby already exists: " .. lobbyName)
+    if Config.DebugPrints then print("[DEBUG] Lobby already exists: " .. lobbyName) end
     ServerNotify(src, 'Speedway', locale("lobby_exists"), 'error')
     return
   end
@@ -453,7 +506,7 @@ RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount
     progress           = {},
     prizePool          = entryFeeAmount,
   }
-  print("[DEBUG] Lobby created: " .. lobbyName)
+  if Config.DebugPrints then print("[DEBUG] Lobby created: " .. lobbyName) end
 
   -- tell the creator
   ServerNotify(src, 'Speedway', locale("lobby_created", lobbyName), 'success')
@@ -467,7 +520,7 @@ RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount
     laps      = lobbies[lobbyName].laps
   })
   TriggerClientEvent('speedway:setLobbyState', -1, next(lobbies) ~= nil)
-  print("[DEBUG] Lobby info sent to client and lobby state updated.")
+  if Config.DebugPrints then print("[DEBUG] Lobby info sent to client and lobby state updated.") end
 end)
 
 --------------------------------------------------------------------------------
@@ -475,6 +528,8 @@ end)
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:joinLobby", function(lobbyName)
   local src   = source
+  if RateLimit(src, "joinLobby", 1000) then return end
+
   local lobby = lobbies[lobbyName]
   if not lobby then
     ServerNotify(src, 'Speedway', locale("lobby_not_found"), 'error')
@@ -486,6 +541,15 @@ RegisterNetEvent("speedway:joinLobby", function(lobbyName)
   end
 
   if not table_contains(lobby.players, src) then
+    -- Check refund cooldown to prevent join-refund-rejoin cycling
+    if _refundCD[src] then
+      local elapsed = GetGameTimer() - _refundCD[src]
+      if elapsed < 30000 then
+        local remaining = math.ceil((30000 - elapsed) / 1000)
+        ServerNotify(src, 'Speedway', 'Please wait ' .. remaining .. ' seconds before rejoining.', 'error')
+        return
+      end
+    end
     -- Charge entry fee before adding to lobby
     if not ChargeEntryFee(src) then return end
     local entryFeeAmount = (Config.EntryFee and Config.EntryFee.enabled) and (Config.EntryFee.amount or 0) or 0
@@ -517,10 +581,16 @@ end)
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:checkpointPassed", function(lobbyName, idx)
   local src = source
+  if RateLimit(src, "checkpointPassed", 200) then return end
+
   local lob = lobbies[lobbyName]
   if not lob or not lob.isStarted then return end
+  -- Verify player is in this lobby
+  if not table_contains(lob.players, src) then return end
+
   local cur = lob.checkpointProgress[src] or 0
-  if type(idx) == 'number' and idx > cur then
+  -- Strict sequential: must be exactly the next checkpoint
+  if type(idx) == 'number' and idx == cur + 1 and idx <= #Config.Checkpoints[lob.track] then
     lob.checkpointProgress[src] = idx
   end
 end)
@@ -530,12 +600,15 @@ end)
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:leaveLobby", function()
   local src = source
+  if RateLimit(src, "leaveLobby", 1000) then return end
+
   for name, lobby in pairs(lobbies) do
     for i, id in ipairs(lobby.players) do
       if id == src then
         -- Refund entry fee if race hasn't started
         if not lobby.isStarted then
           RefundEntryFee(src)
+          _refundCD[src] = GetGameTimer()
           local entryFeeAmount = (Config.EntryFee and Config.EntryFee.enabled) and (Config.EntryFee.amount or 0) or 0
           lobby.prizePool = math.max(0, (lobby.prizePool or 0) - entryFeeAmount)
         end
@@ -575,10 +648,40 @@ RegisterNetEvent("speedway:leaveLobby", function()
 end)
 
 --------------------------------------------------------------------------------
+-- Shared vehicle spawn helper (deduplicates two identical blocks)
+--------------------------------------------------------------------------------
+local function SpawnRaceVehicles(lobbyName, lob, selected)
+  local usedPlates = {}
+  TriggerClientEvent('rox_speedway:cam:broadcastOn', -1)
+  for idx, pid in ipairs(lob.players) do
+    local m = selected[pid]
+    if m then
+      local sp = Config.GridSpawnPoints[idx]
+      if not sp then break end -- more players than grid slots
+      local veh = CreateVehicle(joaat(m), sp.x, sp.y, sp.z, sp.w, true, false)
+      while not DoesEntityExist(veh) do Wait(0) end
+      local plate = makePlateFromPlayer(pid, usedPlates)
+      SetVehicleNumberPlateText(veh, plate)
+      SetVehicleDoorsLocked(veh, 1)
+      TriggerClientEvent("speedway:client:fillFuel", pid, NetworkGetNetworkIdFromEntity(veh))
+      TriggerClientEvent("speedway:client:giveKeys", pid, NetworkGetNetworkIdFromEntity(veh))
+      TriggerClientEvent("speedway:prepareStart", pid, {
+        track = lob.track,
+        laps  = lob.laps,
+        netId = NetworkGetNetworkIdFromEntity(veh),
+        plate = plate,
+      })
+    end
+  end
+end
+
+--------------------------------------------------------------------------------
 -- START RACE & VEHICLE SELECTION
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:startRace", function(lobbyName)
   local src = source
+  if RateLimit(src, "startRace", 3000) then return end
+
   local lob = lobbies[lobbyName]
   if not lob then
     ServerNotify(src, 'Speedway', locale("lobby_not_found"), 'error')
@@ -588,6 +691,7 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
     ServerNotify(src, 'Speedway', locale("not_authorized_to_start_race"), 'error')
     return
   end
+  if lob.isStarted then return end
 
   lob.isStarted          = true
   lob.lastLeader         = -1
@@ -606,6 +710,9 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
   end
 
   if Config.Leaderboard and Config.Leaderboard.enabled then
+    -- Stop idle best-times display before switching to live race mode
+    exports['rox_speedway']:StopIdleLeaderboard()
+
     -- reset per-lobby AMIR state
     local vm = (amirState[lobbyName] and amirState[lobbyName].vm) or (Config.Leaderboard.viewMode or "toggle")
     if vm == 'times' then vm = 'toggle' end -- coerce unsupported mode
@@ -678,29 +785,7 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
     -- If we still have players, spawn vehicles for those who selected
     if #lob.players > 0 and data.received > 0 then
       pendingChoices[lobbyName] = nil
-      local usedPlates = {}
-      -- Notify ALL clients to switch jumbotron to LIVE now that the race is about to begin
-      TriggerClientEvent('rox_speedway:cam:broadcastOn', -1)
-      for idx, pid in ipairs(lob.players) do
-        local m = data.selected[pid]
-        if m then
-          local sp  = Config.GridSpawnPoints[idx]
-          local veh = CreateVehicle(joaat(m), sp.x, sp.y, sp.z, sp.w, true, false)
-          while not DoesEntityExist(veh) do Wait(0) end
-          local plate = makePlateFromPlayer(pid, usedPlates)
-          SetVehicleNumberPlateText(veh, plate)
-          -- Ensure doors are unlocked server-side (client will also reinforce)
-          SetVehicleDoorsLocked(veh, 1)
-          TriggerClientEvent("speedway:client:fillFuel", pid, NetworkGetNetworkIdFromEntity(veh))
-          TriggerClientEvent("speedway:client:giveKeys", pid, NetworkGetNetworkIdFromEntity(veh))
-          TriggerClientEvent("speedway:prepareStart", pid, {
-            track = lob.track,
-            laps  = lob.laps,
-            netId = NetworkGetNetworkIdFromEntity(veh),
-            plate = plate,
-          })
-        end
-      end
+      SpawnRaceVehicles(lobbyName, lob, data.selected)
     else
       -- nobody left or nobody selected: cancel race
       pendingChoices[lobbyName] = nil
@@ -722,43 +807,34 @@ end)
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:selectedVehicle", function(lobbyName, model)
   local src  = source
+  if RateLimit(src, "selectedVehicle", 1000) then return end
+
   local data = pendingChoices[lobbyName]
   local lob  = lobbies[lobbyName]
   if not data or not lob then return end
   -- Ignore submissions from players no longer in the lobby (kicked/left)
-  local inLobby = false
-  for _, pid in ipairs(lob.players) do if pid == src then inLobby = true break end end
-  if not inLobby then return end
+  if not table_contains(lob.players, src) then return end
 
   if model and not data.selected[src] then
+    -- Validate model type and existence in allowed vehicle list
+    if type(model) ~= 'string' then return end
+    if not VALID_MODELS[model:lower()] then return end
+    -- If race class has a specific vehicle list, validate model is in that class
+    local cls = lob.raceClass
+    if cls and Config.RaceClasses[cls] and Config.RaceClasses[cls].vehicles then
+      local classAllowed = false
+      for _, m in ipairs(Config.RaceClasses[cls].vehicles) do
+        if m:lower() == model:lower() then classAllowed = true break end
+      end
+      if not classAllowed then return end
+    end
     data.selected[src] = model
     data.received = data.received + 1
   end
 
   if data.received == data.total then
     pendingChoices[lobbyName] = nil
-  local usedPlates = {}
-  -- Race is about to begin for all; flip jumbotron LIVE for every client
-  TriggerClientEvent('rox_speedway:cam:broadcastOn', -1)
-  for idx, pid in ipairs(lob.players) do
-      local m   = data.selected[pid]
-      local sp  = Config.GridSpawnPoints[idx]
-      local veh = CreateVehicle(joaat(m), sp.x, sp.y, sp.z, sp.w, true, false)
-      while not DoesEntityExist(veh) do Wait(0) end
-  -- Generate a plate from the player's name for easy identification (unique within this batch)
-  local plate = makePlateFromPlayer(pid, usedPlates)
-      SetVehicleNumberPlateText(veh, plate)
-  -- Ensure doors are unlocked server-side (client will also reinforce)
-  SetVehicleDoorsLocked(veh, 1)
-      TriggerClientEvent("speedway:client:fillFuel", pid, NetworkGetNetworkIdFromEntity(veh))
-      TriggerClientEvent("speedway:client:giveKeys", pid, NetworkGetNetworkIdFromEntity(veh))
-      TriggerClientEvent("speedway:prepareStart", pid, {
-        track = lob.track,
-        laps  = lob.laps,
-        netId = NetworkGetNetworkIdFromEntity(veh),
-        plate = plate,
-      })
-    end
+    SpawnRaceVehicles(lobbyName, lob, data.selected)
   end
 end)
 
@@ -769,6 +845,12 @@ RegisterNetEvent("speedway:updateProgress", function(lobbyName, dist)
   local src = source
   local lob = lobbies[lobbyName]
   if not lob or not lob.isStarted then return end
+  -- Verify player is in this lobby
+  if not table_contains(lob.players, src) then return end
+  -- Validate and clamp distance
+  dist = tonumber(dist)
+  if not dist or dist ~= dist then return end -- reject non-number / NaN
+  dist = math.max(0, math.min(dist, 15000))
 
   lob.progress[src] = dist
 
@@ -928,10 +1010,18 @@ end)
 --------------------------------------------------------------------------------
 -- LAP PASSED, LEADERBOARD UPDATE & RACE END
 --------------------------------------------------------------------------------
-RegisterNetEvent("speedway:lapPassed", function(lobbyName, forcedSrc)
-  local src = forcedSrc or source
+RegisterNetEvent("speedway:lapPassed", function(lobbyName)
+  local src = source
+  if RateLimit(src, "lapPassed", 500) then return end
+
   local lob = lobbies[lobbyName]
   if not lob then return end
+  -- Verify player is in this lobby
+  if not table_contains(lob.players, src) then return end
+  -- Prevent double-finish
+  if lob.finished[src] then return end
+  -- Verify ALL checkpoints were passed before counting the lap
+  if (lob.checkpointProgress[src] or 0) < #Config.Checkpoints[lob.track] then return end
 
   -- advance lap count
   lob.lapProgress[src] = (lob.lapProgress[src] or 0) + 1
@@ -1031,6 +1121,11 @@ RegisterNetEvent("speedway:lapPassed", function(lobbyName, forcedSrc)
 
       lobbies[lobbyName] = nil
       TriggerClientEvent("speedway:setLobbyState", -1, next(lobbies) ~= nil)
+
+      -- Resume idle best-times display on the leaderboard
+      if Config.Leaderboard and Config.Leaderboard.enabled then
+        exports['rox_speedway']:ShowIdleLeaderboard()
+      end
     end
   end
 end)
@@ -1091,3 +1186,14 @@ RegisterNetEvent("speedway:server:setFuel", function(netId, level)
     end
   end)
 end)
+
+--------------------------------------------------------------------------------
+-- LEADERBOARD: show idle best-times on resource start
+--------------------------------------------------------------------------------
+if Config.Leaderboard and Config.Leaderboard.enabled then
+  CreateThread(function()
+    -- Wait for sv_leaderboard.lua exports to be registered and DB to be ready
+    Wait(3000)
+    exports['rox_speedway']:ShowIdleLeaderboard()
+  end)
+end

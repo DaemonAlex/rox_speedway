@@ -45,6 +45,7 @@ Make sure these are already running on your server:
 - **Lap Tracking** — Full lap times with podium results
 - **Pit Crew** — Animated NPCs that refuel and repair your car
 - **75+ Vehicles** — Curated list, no duplicates
+- **LED Leaderboard** — Physical in-world scoreboard at the speedway (bundled, works out of the box)
 
 ### NEW: Race Classes
 Pick a vehicle class when creating a lobby. Only vehicles in that class show up during selection.
@@ -217,13 +218,18 @@ Config.PitStopTiming = {
 }
 ```
 
-### AMIR Leaderboard (Optional)
+### LED Leaderboard (Built-in)
 
-Works with [Glitchdetector's Raceway Leaderboard Display](https://github.com/glitchdetector/amir-leaderboard):
+Physical in-world LED scoreboard at Roxwood Speedway. Based on [glitchdetector's amir-leaderboard](https://github.com/glitchdetector/amir-leaderboard), now bundled directly — no separate resource needed.
+
+- **During races:** Shows live player names/times with position ranking
+- **When idle:** Displays the top 9 all-time best lap records, toggling between names and times
+- **On first boot (no stats yet):** Shows "ROXWOOD / SPEED" as a placeholder
 
 ```lua
 Config.Leaderboard = {
-    enabled = true,
+    enabled = true,                  -- Set to false to disable the entire board
+    idleDisplay = true,              -- Show best times when no race is active
     updateIntervalMs = 1000,
     toggleIntervalMs = 2000,
     viewMode = "toggle",             -- "toggle" or "names"
@@ -283,6 +289,17 @@ rox_speedway/
       timeout.html        -- Lobby overlay & timeout modal
   server/
     s_main.lua            -- Core server: lobbies, race logic, rewards, stats, entry fees
+  leaderboard/
+    cl_leaderboard.lua    -- Client: DUI setup for in-world LED sign
+    sv_leaderboard.lua    -- Server: display state, idle best-times loop
+    speedway.html         -- HTML/JS LED display (9 player + 1 title + 3 ad slots)
+    LCDMB___.TTF          -- LCD font for the sign
+    ads/                  -- 16 default ad images for the sign
+  stream/
+    amir_speedway_led.ydr -- 3D model for the LED sign
+    amir_speedway_led.ytd -- Texture dictionary
+    amir_speedway_sign.ymap -- Map placement
+    def_amir_speedway.ytyp -- Type definition
   locales/
     en.lua                -- English strings (add more files for other languages)
 ```
@@ -351,6 +368,26 @@ Config.PitCrewZones = {
 
 ## Changelog
 
+### v2.2 — Security Hardening & Optimization
+- **Server-side input validation** — All 8 net events now validate inputs (types, ranges, whitelists)
+- **Sequential checkpoint enforcement** — Players must hit checkpoints in order; skipping is blocked
+- **Full lap verification** — Laps only count if all checkpoints were passed; no more teleport-to-finish exploits
+- **Removed `forcedSrc` from lapPassed** — Players can no longer complete laps for other players
+- **Vehicle model whitelist** — Server rejects models not in `Config.RaceVehicles` or the selected race class
+- **Rate limiting** — All net events are throttled to prevent spam/flooding
+- **Refund abuse prevention** — 30-second cooldown after leaving a lobby before rejoining
+- **Double-start prevention** — `startRace` blocked if race already started
+- **Distance clamping** — Client progress values clamped to `[0, 15000]` with NaN rejection
+- **XSS hardening** — Leaderboard and lobby UI use `textContent`/DOM API instead of `innerHTML`
+- **Entity wait timeout** — Vehicle spawn waits time out after 15s instead of hanging forever
+- **Memory optimization** — Leaderboard model released after texture setup; pit blips cleaned up on resource stop
+- **Code deduplication** — Extracted `SpawnRaceVehicles()` replacing two identical spawn blocks
+
+### v2.1 — Built-in LED Leaderboard
+- **Bundled AMIR Leaderboard** — No separate resource needed; LED sign works out of the box
+- **Idle Best-Times Display** — Board shows top 9 all-time records when no race is running
+- **Auto-resume** — Idle display starts on resource boot and resumes after each race
+
 ### v2.0 — Rewards, Stats, Entry Fees & Race Classes
 - **Race Classes** — 7 vehicle classes (Open, Super, Tuner, Muscle, Bikes, Vans, Rally)
 - **Rewards System** — Position payouts, participation reward, best lap bonus, optional vehicle prize
@@ -380,12 +417,13 @@ Config.PitCrewZones = {
 **One of:**
 - [ox_target](https://github.com/overextended/ox_target) OR [qb-target](https://github.com/qbcore-framework/qb-target)
 
-**Optional:**
-- [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard)
+**Built-in (no separate install):**
+- [AMIR Leaderboard](https://github.com/glitchdetector/amir-leaderboard) by glitchdetector — bundled in `leaderboard/` and `stream/`
 
 ## Credits
 
 - Original script by [MaxSuperTech](https://github.com/MaxSuperTech/max_rox_speedway)
+- LED leaderboard sign by [glitchdetector](https://github.com/glitchdetector/amir-leaderboard)
 - Modified and enhanced by DrCannabis / DaemonAlex
 
 ## Contributing

@@ -132,7 +132,14 @@
         I18N = { ...I18N, ...data.i18n };
         // apply static labels on modal
         const hdr = document.querySelector('.card .header');
-        if (hdr) hdr.innerHTML = `<span class="titleIcon">🏁</span> ${I18N.speedwayTitle || 'Speedway'}`;
+        if (hdr) {
+          hdr.textContent = '';
+          const icon = document.createElement('span');
+          icon.className = 'titleIcon';
+          icon.textContent = '\u{1F3C1}';
+          hdr.appendChild(icon);
+          hdr.appendChild(document.createTextNode(' ' + (I18N.speedwayTitle || 'Speedway')));
+        }
         dismiss.textContent = I18N.modalDismiss || 'Dismiss';
       } else if (data.action === 'showTimeoutModal') {
         msg.textContent = data.message || I18N.modalRemoved || 'You were removed.';
@@ -146,13 +153,21 @@
         lobbyState.lobbyName = data.lobbyName || null;
         lobbyMembers.innerHTML = '';
         if (!members.length) {
-          lobbyMembers.innerHTML = `<tr><td class="waiting">${I18N.waiting || 'Waiting for players...'}</td></tr>`;
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.className = 'waiting';
+          td.textContent = I18N.waiting || 'Waiting for players...';
+          tr.appendChild(td);
+          lobbyMembers.appendChild(tr);
         } else {
           members.forEach((m, idx) => {
             const tr = document.createElement('tr');
+            const td = document.createElement('td');
             const isHost = data.hostName ? (m === data.hostName) : (idx === 0);
+            if (isHost) td.className = 'host';
             const hostTag = isHost ? ` ${I18N.hostTag || '(Host)'}` : '';
-            tr.innerHTML = `<td${isHost ? ' class="host"' : ''}>${m}${hostTag}</td>`;
+            td.textContent = m + hostTag;
+            tr.appendChild(td);
             lobbyMembers.appendChild(tr);
           });
         }

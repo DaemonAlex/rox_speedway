@@ -6,6 +6,7 @@ local Config = require("config.config")
 
 -- will hold all our ped references
 local pitZones = {}
+local pitBlips = {}
 
 --------------------------------------------------------------------------------
 -- 1) SPAWN ALL PIT CREW & ADD MAP BLIPS
@@ -99,10 +100,11 @@ CreateThread(function()
         BeginTextCommandSetBlipName("STRING")
         AddTextComponentSubstringPlayerName("Pit Crew Zone")
         EndTextCommandSetBlipName(blip)
+        table.insert(pitBlips, blip)
     end
 end)
 
--- Cleanup on resource stop to avoid orphan peds wandering off
+-- Cleanup on resource stop to avoid orphan peds and blips
 AddEventHandler('onClientResourceStop', function(resName)
     if resName ~= GetCurrentResourceName() then return end
     for _, zone in pairs(pitZones) do
@@ -113,6 +115,10 @@ AddEventHandler('onClientResourceStop', function(resName)
             for _, p in ipairs(zone.crew) do if DoesEntityExist(p) then DeleteEntity(p) end end
         end
     end
+    for _, blip in ipairs(pitBlips) do
+        if DoesBlipExist(blip) then RemoveBlip(blip) end
+    end
+    pitBlips = {}
 end)
 
 --------------------------------------------------------------------------------

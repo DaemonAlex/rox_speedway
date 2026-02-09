@@ -827,7 +827,7 @@ RegisterNetEvent("speedway:prepareStart", function(data)
         onEnter = function()
             if racerCheckpointIndex == #Config.Checkpoints[data.track] then
                 racerCheckpointIndex = 0
-                TriggerServerEvent("speedway:lapPassed", currentLobby, GetPlayerServerId(PlayerId()))
+                TriggerServerEvent("speedway:lapPassed", currentLobby)
             end
         end
     })
@@ -835,10 +835,26 @@ RegisterNetEvent("speedway:prepareStart", function(data)
 
     -- now spawn & race
     CreateThread(function()
-        -- wait for the vehicle entity to exist
-        while not NetworkDoesNetworkIdExist(data.netId) do Wait(0) end
+        -- wait for the vehicle entity to exist (with 15s timeout)
+        local deadline = GetGameTimer() + 15000
+        while not NetworkDoesNetworkIdExist(data.netId) do
+          if GetGameTimer() > deadline then
+            SpeedwayNotify("Speedway", "Vehicle failed to spawn. Please try again.", "error", 5000)
+            inRace = false
+            return
+          end
+          Wait(0)
+        end
         local veh = NetworkGetEntityFromNetworkId(data.netId)
-        while not DoesEntityExist(veh) do Wait(0); veh = NetworkGetEntityFromNetworkId(data.netId) end
+        while not DoesEntityExist(veh) do
+          if GetGameTimer() > deadline then
+            SpeedwayNotify("Speedway", "Vehicle failed to spawn. Please try again.", "error", 5000)
+            inRace = false
+            return
+          end
+          Wait(0)
+          veh = NetworkGetEntityFromNetworkId(data.netId)
+        end
 
     -- prep vehicle
     SetEntityAsMissionEntity(veh, true, true)

@@ -32,9 +32,11 @@ Config.InteractKey = 'F2'
 -- Human-friendly label shown in the UI hint
 Config.InteractKeyLabel = 'F2'
 
---- Optional if you have Raceway Leaderboard Display by Glitchdetector
+--- Built-in Raceway Leaderboard Display (bundled from glitchdetector's amir-leaderboard)
 Config.Leaderboard = {
-    enabled = false,
+    enabled = true,
+    -- Show best times on the board when no race is active
+    idleDisplay = true,
     -- How often to push updates to AMIR (ms). Too frequent causes flicker.
     updateIntervalMs = 1000,
     -- How often to flip between Names and Times on the board (ms)
