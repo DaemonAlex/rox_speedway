@@ -75,4 +75,22 @@ function GiveVehicleKeys(veh)
     return ok
 end
 
+-- Server-triggered key handoff: receives a netId instead of relying on
+-- a single key protocol. Uses the multi-provider GiveVehicleKeys().
+RegisterNetEvent('speedway:client:giveKeys', function(netId)
+    local veh = NetworkGetEntityFromNetworkId(netId)
+    if not veh or veh == 0 then
+        -- entity may not have arrived yet; wait briefly
+        local tries = 0
+        while (not veh or veh == 0) and tries < 20 do
+            Wait(100)
+            veh = NetworkGetEntityFromNetworkId(netId)
+            tries = tries + 1
+        end
+    end
+    if veh and veh ~= 0 then
+        GiveVehicleKeys(veh)
+    end
+end)
+
 return {}

@@ -1,7 +1,10 @@
 -- s_main.lua
 
 local Config    = require("config.config")
-local QBCore    = exports['qb-core']:GetCoreObject()
+local QBCore    = nil
+if GetResourceState('qb-core') == 'started' or GetResourceState('qb-core') == 'starting' then
+  QBCore = exports['qb-core']:GetCoreObject()
+end
 local localeTable = require("locales." .. Config.Locale)
 local function locale(key, ...)
   local str = localeTable[key] or key
@@ -9,6 +12,13 @@ local function locale(key, ...)
   return (str:gsub("{(%d+)}", function(n)
     return tostring(args[tonumber(n)] or "")
   end))
+end
+
+--------------------------------------------------------------------------------
+-- server-side notification helper (routes through client SpeedwayNotify)
+--------------------------------------------------------------------------------
+local function ServerNotify(target, title, description, ntype, duration)
+  TriggerClientEvent('speedway:client:notify', target, title, description, ntype, duration)
 end
 
 --------------------------------------------------------------------------------
@@ -112,7 +122,7 @@ RegisterCommand('lb', function(src, args)
     if src == 0 then
       print('[Speedway] Usage: lb <names|toggle> [LobbyName]')
     else
-      TriggerClientEvent('ox_lib:notify', src, { title = 'Speedway', description = 'Usage: /lb names | toggle', type = 'inform' })
+      ServerNotify(src, 'Speedway', 'Usage: /lb names | toggle', 'inform')
     end
     return
   end
@@ -130,7 +140,7 @@ RegisterCommand('lb', function(src, args)
     if src == 0 then
       print('[Speedway] No active lobby found for command')
     else
-      TriggerClientEvent('ox_lib:notify', src, { title = 'Speedway', description = 'No active lobby found', type = 'error' })
+      ServerNotify(src, 'Speedway', 'No active lobby found', 'error')
     end
     return
   end
@@ -142,7 +152,7 @@ RegisterCommand('lb', function(src, args)
   amirState[lobbyName].showNames = true -- always start on names view
 
   local msg = ('AMIR view mode set to %s for lobby %s'):format(mode, tostring(lobbyName))
-  if src == 0 then print('[Speedway] ' .. msg) else TriggerClientEvent('ox_lib:notify', src, { title = locale('speedway_title'), description = msg, type = 'success' }) end
+  if src == 0 then print('[Speedway] ' .. msg) else ServerNotify(src, locale('speedway_title'), msg, 'success') end
 end, false)
 
 math.randomseed(GetGameTimer())
@@ -175,18 +185,12 @@ RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount
   -- Prevent new lobby if any lobby is active
   if next(lobbies) ~= nil then
     print("[DEBUG] Cannot create lobby: another lobby is already active.")
-    TriggerClientEvent('ox_lib:notify', src, {
-      description = locale("lobby_exists"),
-      type        = "error"
-    })
+    ServerNotify(src, 'Speedway', locale("lobby_exists"), 'error')
     return
   end
   if lobbies[lobbyName] then
     print("[DEBUG] Lobby already exists: " .. lobbyName)
-    TriggerClientEvent('ox_lib:notify', src, {
-      description = locale("lobby_exists"),
-      type        = "error"
-    })
+    ServerNotify(src, 'Speedway', locale("lobby_exists"), 'error')
     return
   end
 
@@ -206,10 +210,7 @@ RegisterNetEvent("speedway:createLobby", function(lobbyName, trackType, lapCount
   print("[DEBUG] Lobby created: " .. lobbyName)
 
   -- tell the creator
-  TriggerClientEvent('ox_lib:notify', src, {
-    description = locale("lobby_created", lobbyName),
-    type        = "success"
-  })
+  ServerNotify(src, 'Speedway', locale("lobby_created", lobbyName), 'success')
   local hostName = GetPlayerName(src)
   TriggerClientEvent('speedway:updateLobbyInfo', src, {
     name      = lobbyName,
@@ -230,19 +231,11 @@ RegisterNetEvent("speedway:joinLobby", function(lobbyName)
   local src   = source
   local lobby = lobbies[lobbyName]
   if not lobby then
-    TriggerClientEvent('ox_lib:notify', src, {
-      title       = "Speedway",
-      description = locale("lobby_not_found"),
-      type        = "error"
-    })
+    ServerNotify(src, 'Speedway', locale("lobby_not_found"), 'error')
     return
   end
   if lobby.isStarted then
-    TriggerClientEvent('ox_lib:notify', src, {
-      title       = "Speedway",
-      description = "Race already started. You cannot join now. Please come back after the race ends.",
-      type        = "error"
-    })
+    ServerNotify(src, 'Speedway', 'Race already started. You cannot join now. Please come back after the race ends.', 'error')
     return
   end
 
@@ -293,11 +286,7 @@ RegisterNetEvent("speedway:leaveLobby", function()
         if lobby.owner == src then
           -- owner left → close lobby
           for _, player in ipairs(lobby.players) do
-            TriggerClientEvent('ox_lib:notify', player, {
-              title       = "Speedway",
-              description = locale("lobby_closed_by_owner", name),
-              type        = "warning"
-            })
+            ServerNotify(player, 'Speedway', locale("lobby_closed_by_owner", name), 'warning')
             TriggerClientEvent("speedway:updateLobbyInfo", player, nil)
           end
           lobbies[name] = nil
@@ -331,19 +320,11 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
   local src = source
   local lob = lobbies[lobbyName]
   if not lob then
-    TriggerClientEvent('ox_lib:notify', src, {
-      title       = "Speedway",
-      description = locale("lobby_not_found"),
-      type        = "error"
-    })
+    ServerNotify(src, 'Speedway', locale("lobby_not_found"), 'error')
     return
   end
   if lob.owner ~= src then
-    TriggerClientEvent('ox_lib:notify', src, {
-      title       = "Speedway",
-      description = locale("not_authorized_to_start_race"),
-      type        = "error"
-    })
+    ServerNotify(src, 'Speedway', locale("not_authorized_to_start_race"), 'error')
     return
   end
 
@@ -422,11 +403,7 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
       for i = #lob.players, 1, -1 do
         local pid = lob.players[i]
         if not data.selected[pid] then
-          TriggerClientEvent('ox_lib:notify', pid, {
-            title = "Speedway",
-            description = locale("vehicle_select_timeout"),
-            type = "warning"
-          })
+          ServerNotify(pid, 'Speedway', locale("vehicle_select_timeout"), 'warning')
           TriggerClientEvent("speedway:kickedFromLobby", pid, lobbyName, "timeout")
           table.remove(lob.players, i)
         else
@@ -454,7 +431,7 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
           -- Ensure doors are unlocked server-side (client will also reinforce)
           SetVehicleDoorsLocked(veh, 1)
           TriggerClientEvent("speedway:client:fillFuel", pid, NetworkGetNetworkIdFromEntity(veh))
-          TriggerClientEvent("vehiclekeys:client:SetOwner", pid, plate)
+          TriggerClientEvent("speedway:client:giveKeys", pid, NetworkGetNetworkIdFromEntity(veh))
           TriggerClientEvent("speedway:prepareStart", pid, {
             track = lob.track,
             laps  = lob.laps,
@@ -470,11 +447,7 @@ RegisterNetEvent("speedway:startRace", function(lobbyName)
       -- Ensure broadcast turns off if it was turned on earlier for this lobby
       TriggerClientEvent('rox_speedway:cam:broadcastOff', -1)
       for _, pid in ipairs(lob.players) do
-        TriggerClientEvent('ox_lib:notify', pid, {
-          title = "Speedway",
-          description = locale("race_cancelled"),
-          type = "error"
-        })
+        ServerNotify(pid, 'Speedway', locale("race_cancelled"), 'error')
       end
     end
   end)
@@ -517,7 +490,7 @@ RegisterNetEvent("speedway:selectedVehicle", function(lobbyName, model)
   -- Ensure doors are unlocked server-side (client will also reinforce)
   SetVehicleDoorsLocked(veh, 1)
       TriggerClientEvent("speedway:client:fillFuel", pid, NetworkGetNetworkIdFromEntity(veh))
-      TriggerClientEvent("vehiclekeys:client:SetOwner", pid, plate)
+      TriggerClientEvent("speedway:client:giveKeys", pid, NetworkGetNetworkIdFromEntity(veh))
       TriggerClientEvent("speedway:prepareStart", pid, {
         track = lob.track,
         laps  = lob.laps,

@@ -20,7 +20,6 @@ client_scripts {
 }
 
 server_scripts {
-  '@oxmysql/lib/MySQL.lua',
   'server/s_main.lua',
 }
 
@@ -33,9 +32,8 @@ files {
 
 dependencies {
     'ox_lib',
-    'qb-core',
-    'oxmysql',
-    -- Target system: requires either 'ox_target' or 'qb-target' (configure in config.lua)
+    -- Optional: 'qb-core' (used for character name plates; falls back to Rockstar name)
+    -- Optional: target system - 'ox_target' or 'qb-target' (configure in config.lua)
 }
 
 lua54 'yes'

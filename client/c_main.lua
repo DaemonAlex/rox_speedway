@@ -11,12 +11,7 @@ local function loc(key, ...)
 end
 
 --------------------------------------------------------------------------------
--- 2) PULL IN QBCORE
---------------------------------------------------------------------------------
-local QBCore = exports['qb-core']:GetCoreObject()
-
---------------------------------------------------------------------------------
--- 3) FUEL MODULE (moved to client/c_fuel.lua)
+-- 2) FUEL MODULE (moved to client/c_fuel.lua)
 --------------------------------------------------------------------------------
 -- SetFullFuel(veh) is defined in client/c_fuel.lua
 
@@ -410,6 +405,11 @@ function SpeedwayNotify(title, description, ntype, duration)
     end
 end
 
+-- Server-triggered notification: routes through SpeedwayNotify for provider compatibility
+RegisterNetEvent('speedway:client:notify', function(title, description, ntype, duration)
+    SpeedwayNotify(title, description, ntype, duration)
+end)
+
 function SpeedwayAlert(header, content, duration)
     local provider = Config.NotificationProvider or "ox_lib"
     if provider == "okokNotify" or provider == "ox_lib" then
@@ -449,8 +449,14 @@ CreateThread(function()
     SetEntityInvincible(ped, true)
     SetBlockingOfNonTemporaryEvents(ped, true)
 
-    -- Support both ox_target and qb-target based on config
-    if Config.TargetSystem == 'ox_target' then
+    -- Support ox_target, qb-target, or fallback to proximity key-press
+    local targetSystem = Config.TargetSystem or 'ox_target'
+    local function hasResource(name)
+        local st = GetResourceState(name)
+        return st == 'started' or st == 'starting'
+    end
+
+    if targetSystem == 'ox_target' and hasResource('ox_target') then
         exports.ox_target:addLocalEntity(ped, {
             {
                 name = 'speedway_create_lobby',
@@ -469,7 +475,7 @@ CreateThread(function()
                 distance = 2.5,
             },
         })
-    else
+    elseif targetSystem == 'qb-target' and hasResource('qb-target') then
         exports['qb-target']:AddTargetEntity(ped, {
             options = {
                 { event = 'speedway:client:createLobby', icon = 'fa-solid fa-flag-checkered', label = loc("create_lobby"), canInteract = function() return not hasLobby end },
@@ -477,6 +483,33 @@ CreateThread(function()
             },
             distance = 2.5
         })
+    else
+        -- Fallback: proximity + key-press interaction (no target resource needed)
+        local interactKey = Config.InteractKey or 'E'
+        local interactLabel = Config.InteractKeyLabel or interactKey
+        local pedCoords = cfg.coords
+        CreateThread(function()
+            while DoesEntityExist(ped) do
+                local sleep = 1000
+                local playerCoords = GetEntityCoords(PlayerPedId())
+                local dist = #(playerCoords - vector3(pedCoords.x, pedCoords.y, pedCoords.z))
+                if dist < 3.0 then
+                    sleep = 0
+                    if not hasLobby then
+                        DrawText3D(pedCoords.x, pedCoords.y, pedCoords.z + 1.0, ('[%s] %s'):format(interactLabel, loc("create_lobby")))
+                        if IsControlJustPressed(0, 38) then -- E key
+                            TriggerEvent('speedway:client:createLobby')
+                        end
+                    elseif hasLobby and not currentLobby then
+                        DrawText3D(pedCoords.x, pedCoords.y, pedCoords.z + 1.0, ('[%s] %s'):format(interactLabel, loc("join_lobby")))
+                        if IsControlJustPressed(0, 38) then -- E key
+                            TriggerEvent('speedway:client:joinLobby')
+                        end
+                    end
+                end
+                Wait(sleep)
+            end
+        end)
     end
 
     local blip = AddBlipForCoord(cfg.coords.x, cfg.coords.y, cfg.coords.z)

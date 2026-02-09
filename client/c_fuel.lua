@@ -1,5 +1,4 @@
 -- client/fuel.lua
-local QBCore = exports['qb-core']:GetCoreObject()
 
 local FuelAPIs = {
   { name = "LegacyFuel" },

@@ -3,7 +3,6 @@
 print("👷 [ROX-Speedway] c_pit.lua loaded")
 
 local Config = require("config.config")
-local QBCore = exports['qb-core']:GetCoreObject()
 
 -- will hold all our ped references
 local pitZones = {}
