@@ -80,26 +80,10 @@ function HideLobbyDisplay()
     lobbyHintShown = false
 end
 
--- Try to close qb-input dialog if it is open
+-- Try to close any open input dialog
 local function CloseVehicleSelectionUI()
-    -- best-effort: try known exports and events, then drop NUI focus
-    local ok = false
-    if exports['qb-input'] then
-        -- Try common method names unconditionally; pcall will swallow if they don't exist
-        pcall(function() exports['qb-input']:CloseInput(); ok = true end)
-        pcall(function() exports['qb-input']:HideInput();  ok = true end)
-        pcall(function() exports['qb-input']:closeMenu();  ok = true end)
-        pcall(function() exports['qb-input']:Close();      ok = true end)
-        -- Some forks expose a generic close function name
-        pcall(function() exports['qb-input']:close();      ok = true end)
-    end
-    -- common events some forks listen for
-    TriggerEvent('qb-input:client:close')
-    TriggerEvent('qb-input:close')
-    TriggerEvent('qb-input:client:closeMenu')
-    TriggerEvent('qb-input:closeMenu')
-    -- also try qb-menu close in case the input UI wraps it
-    TriggerEvent('qb-menu:client:closeMenu')
+    -- Close ox_lib input dialog if open
+    pcall(function() lib.closeInputDialog() end)
     -- ensure focus is released as a last resort
     SetNuiFocus(false, false)
     -- reinforce focus off for a few frames in case another script re-asserts it
@@ -558,25 +542,21 @@ RegisterNetEvent('speedway:client:createLobby', function()
         SpeedwayNotify(loc("lobby_exists"), "", "error")
         return
     end
-    local dialog = exports['qb-input']:ShowInput({
-        header     = loc("create_lobby"),
-        submitText = loc("submit"),
-        inputs     = {
-            { text = loc("number_of_laps"), name = "lapCount", type = "number", isRequired = true, min = 1, max = 10, default = 3 },
-            { text = loc("select_track"),   name = "trackType", type = "select", isRequired = true, default = "Short_Track",
-              options = {
-                  { value = "Short_Track", text = loc("Short_Track") },
-                  { value = "Drift_Track",  text = loc("Drift_Track")  },
-                  { value = "Speed_Track",  text = loc("Speed_Track")  },
-                  { value = "Long_Track",   text = loc("Long_Track")   },
-              },
-            },
+    local dialog = lib.inputDialog(loc("create_lobby"), {
+        { type = 'number', label = loc("number_of_laps"), required = true, min = 1, max = 10, default = 3 },
+        { type = 'select', label = loc("select_track"),   required = true, default = 'Short_Track',
+          options = {
+              { value = 'Short_Track', label = loc("Short_Track") },
+              { value = 'Drift_Track', label = loc("Drift_Track") },
+              { value = 'Speed_Track', label = loc("Speed_Track") },
+              { value = 'Long_Track',  label = loc("Long_Track")  },
+          },
         },
     })
-    if not dialog then if Config.DebugPrints then print("[DEBUG] qb-input dialog not returned") end return end
+    if not dialog then if Config.DebugPrints then print("[DEBUG] input dialog cancelled") end return end
 
-    local lapCount  = tonumber(dialog.lapCount) or 1
-    local trackType = dialog.trackType
+    local lapCount  = tonumber(dialog[1]) or 1
+    local trackType = dialog[2]
     local lobbyName = GetPlayerName(PlayerId()) .. "_" .. math.random(1000,9999)
     if Config.DebugPrints then
         print(string.format("[DEBUG] TriggerServerEvent speedway:createLobby: lobbyName=%s, trackType=%s, lapCount=%s", lobbyName, trackType, lapCount))
@@ -591,14 +571,12 @@ RegisterNetEvent('speedway:client:joinLobby', function()
         return
     end
     local opts = {}
-    for _, e in ipairs(lobbies) do table.insert(opts, { value = e.value, text = e.label }) end
-    local dialog = exports['qb-input']:ShowInput({
-        header     = loc("join_lobby"),
-        submitText = loc("submit"),
-        inputs     = {{ text = loc("select_lobby"), name = "selectedLobby", type = "select", isRequired = true, options = opts }},
+    for _, e in ipairs(lobbies) do table.insert(opts, { value = e.value, label = e.label }) end
+    local dialog = lib.inputDialog(loc("join_lobby"), {
+        { type = 'select', label = loc("select_lobby"), required = true, options = opts },
     })
-    if dialog and dialog.selectedLobby then
-        TriggerServerEvent("speedway:joinLobby", dialog.selectedLobby)
+    if dialog and dialog[1] then
+        TriggerServerEvent("speedway:joinLobby", dialog[1])
     end
 end)
 
@@ -716,21 +694,12 @@ end)
 RegisterNetEvent("speedway:chooseVehicle", function(lobbyName)
     local opts = {}
     for _, v in ipairs(Config.RaceVehicles) do
-        table.insert(opts, { value = v.model, text = v.label })
+        table.insert(opts, { value = v.model, label = v.label })
     end
-    local dialog = exports['qb-input']:ShowInput({
-        header     = loc("choose_vehicle_title"),
-        submitText = loc("submit"),
-        inputs     = {{
-            text       = loc("choose_vehicle_label"),
-            name       = "selectedModel",
-            type       = "select",
-            isRequired = true,
-            options    = opts,
-            default    = opts[1].value
-        }},
+    local dialog = lib.inputDialog(loc("choose_vehicle_title"), {
+        { type = 'select', label = loc("choose_vehicle_label"), required = true, options = opts, default = opts[1].value },
     })
-    local sel = dialog and dialog.selectedModel or nil
+    local sel = dialog and dialog[1] or nil
     TriggerServerEvent("speedway:selectedVehicle", lobbyName, sel)
 end)
 
