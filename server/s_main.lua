@@ -593,6 +593,23 @@ RegisterNetEvent("speedway:checkpointPassed", function(lobbyName, idx)
   if type(idx) == 'number' and idx == cur + 1 and idx <= #Config.Checkpoints[lob.track] then
     lob.checkpointProgress[src] = idx
   end
+
+  -- Checkpoint-based unghost: once ALL racers pass the target checkpoint, end start ghost
+  if lob.ghostActive and Config.Ghosting.enabled and Config.Ghosting.unghostOnCheckpoint > 0 then
+    local allPast = true
+    for _, pid in ipairs(lob.players) do
+      if (lob.checkpointProgress[pid] or 0) < Config.Ghosting.unghostOnCheckpoint then
+        allPast = false
+        break
+      end
+    end
+    if allPast then
+      lob.ghostActive = false
+      for _, pid in ipairs(lob.players) do
+        TriggerClientEvent("speedway:client:unghost", pid)
+      end
+    end
+  end
 end)
 
 --------------------------------------------------------------------------------
@@ -652,7 +669,15 @@ end)
 --------------------------------------------------------------------------------
 local function SpawnRaceVehicles(lobbyName, lob, selected)
   local usedPlates = {}
+  local spawnedNetIds = {}
   TriggerClientEvent('rox_speedway:cam:broadcastOn', -1)
+
+  -- Record starting grid order for "Most Improved" calculation
+  lob.gridOrder = {}
+  for idx, pid in ipairs(lob.players) do
+    lob.gridOrder[pid] = idx
+  end
+
   for idx, pid in ipairs(lob.players) do
     local m = selected[pid]
     if m then
@@ -660,18 +685,39 @@ local function SpawnRaceVehicles(lobbyName, lob, selected)
       if not sp then break end -- more players than grid slots
       local veh = CreateVehicle(joaat(m), sp.x, sp.y, sp.z, sp.w, true, false)
       while not DoesEntityExist(veh) do Wait(0) end
+      local netId = NetworkGetNetworkIdFromEntity(veh)
       local plate = makePlateFromPlayer(pid, usedPlates)
       SetVehicleNumberPlateText(veh, plate)
       SetVehicleDoorsLocked(veh, 1)
-      TriggerClientEvent("speedway:client:fillFuel", pid, NetworkGetNetworkIdFromEntity(veh))
-      TriggerClientEvent("speedway:client:giveKeys", pid, NetworkGetNetworkIdFromEntity(veh))
+      TriggerClientEvent("speedway:client:fillFuel", pid, netId)
+      TriggerClientEvent("speedway:client:giveKeys", pid, netId)
       TriggerClientEvent("speedway:prepareStart", pid, {
         track = lob.track,
         laps  = lob.laps,
-        netId = NetworkGetNetworkIdFromEntity(veh),
+        netId = netId,
         plate = plate,
       })
+      spawnedNetIds[#spawnedNetIds+1] = { pid = pid, netId = netId }
     end
+  end
+
+  -- Broadcast all race vehicle netIds to all clients (clients ignore if not inRace)
+  TriggerClientEvent("speedway:raceVehicles", -1, spawnedNetIds)
+
+  -- Start-of-race ghosting
+  if Config.Ghosting.enabled and Config.Ghosting.startGhosted then
+    lob.ghostActive = true
+    lob.startGhostTime = GetGameTimer()
+    -- Timer fallback: unghost everyone after configured seconds
+    CreateThread(function()
+      Wait(Config.Ghosting.unghostTimerSeconds * 1000)
+      if lob.ghostActive then
+        lob.ghostActive = false
+        for _, pid in ipairs(lob.players) do
+          TriggerClientEvent("speedway:client:unghost", pid)
+        end
+      end
+    end)
   end
 end
 
@@ -909,6 +955,23 @@ RegisterNetEvent("speedway:updateProgress", function(lobbyName, dist)
     TriggerClientEvent("speedway:updatePosition", e.id, displayRank, #board)
   end
 
+  -- Lapped-player ghosting: ghost players a full lap behind the leader
+  if Config.Ghosting.enabled and Config.Ghosting.lappedGhosting then
+    local leaderLap = board[1] and board[1].lap or 0
+    for _, entry in ipairs(board) do
+      local isLapped = (leaderLap - entry.lap) >= 1
+      local wasGhosted = lob.lappedGhost and lob.lappedGhost[entry.id]
+      if isLapped and not wasGhosted then
+        lob.lappedGhost = lob.lappedGhost or {}
+        lob.lappedGhost[entry.id] = true
+        TriggerClientEvent("speedway:client:setGhosted", entry.id, true)
+      elseif not isLapped and wasGhosted then
+        lob.lappedGhost[entry.id] = nil
+        TriggerClientEvent("speedway:client:setGhosted", entry.id, false)
+      end
+    end
+  end
+
   -- Update AMIR leaderboard to reflect live positions and current lap/total
   if Config.Leaderboard and Config.Leaderboard.enabled then
     local lName = lobbyName
@@ -1074,16 +1137,72 @@ RegisterNetEvent("speedway:lapPassed", function(lobbyName)
       if not lob.finished[pid] then allFin = false break end
     end
     if allFin then
+      -- Build expanded results with best lap, payouts, and "Most Improved"
       local results = {}
+      local globalBestLap, bestLapPlayer = math.huge, nil
       for _, pid in ipairs(lob.players) do
-        local sum = 0
-        for _, t in ipairs(lob.lapTimes[pid]) do sum = sum + t end
-        table.insert(results, { id = pid, time = sum })
+        local sum, best = 0, math.huge
+        for _, t in ipairs(lob.lapTimes[pid] or {}) do
+          sum = sum + t
+          if t < best then best = t end
+        end
+        if best < globalBestLap then
+          globalBestLap = best
+          bestLapPlayer = pid
+        end
+        if best == math.huge then best = 0 end
+        results[#results+1] = {
+          id = pid,
+          name = GetPlayerName(pid) or ("Player " .. pid),
+          time = sum,
+          bestLap = best,
+          lapTimes = lob.lapTimes[pid],
+        }
       end
       table.sort(results, function(a,b) return a.time < b.time end)
 
+      -- Add position, payout info, and best-lap flag
+      for pos, entry in ipairs(results) do
+        entry.position = pos
+        entry.payout = 0
+        if Config.Rewards and Config.Rewards.enabled then
+          entry.payout = (Config.Rewards.payouts[pos] or 0)
+              + (Config.Rewards.participationReward or 0)
+          if entry.id == bestLapPlayer and Config.Rewards.bestLapBonus then
+            entry.payout = entry.payout + Config.Rewards.bestLapBonus
+            entry.isBestLap = true
+          end
+        end
+        if Config.EntryFee and Config.EntryFee.enabled and lob.prizePool then
+          local pct = Config.EntryFee.poolSplit[pos] or 0
+          entry.payout = entry.payout + math.floor((lob.prizePool * pct) / 100)
+        end
+      end
+
+      -- Calculate "Most Improved" (biggest gain from grid position to finish)
+      local mostImprovedId, mostImprovedGain = nil, 0
+      for _, entry in ipairs(results) do
+        local gridPos = lob.gridOrder and lob.gridOrder[entry.id] or entry.position
+        local gain = gridPos - entry.position  -- positive = gained positions
+        if gain > mostImprovedGain then
+          mostImprovedGain = gain
+          mostImprovedId = entry.id
+        end
+        entry.gridPosition = gridPos
+      end
+      if mostImprovedGain <= 0 then mostImprovedId = nil end
+      for _, entry in ipairs(results) do
+        entry.isMostImproved = (entry.id == mostImprovedId)
+      end
+
+      -- Broadcast expanded results to all race participants
       for _, pid in ipairs(lob.players) do
-        TriggerClientEvent("speedway:finalRanking", pid, { allResults = results })
+        TriggerClientEvent("speedway:finalRanking", pid, {
+          allResults = results,
+          bestLapPlayer = bestLapPlayer,
+          mostImprovedPlayer = mostImprovedId,
+          track = lob.track,
+        })
         TriggerClientEvent("speedway:client:destroyprops", pid)
       end
 
@@ -1095,23 +1214,10 @@ RegisterNetEvent("speedway:lapPassed", function(lobbyName)
 
       -- Save persistent race stats for each player
       for pos, entry in ipairs(results) do
-        local bestLap = math.huge
-        for _, t in ipairs(lob.lapTimes[entry.id] or {}) do
-          if t < bestLap then bestLap = t end
-        end
-        if bestLap == math.huge then bestLap = 0 end
-
         -- Calculate total earnings for this player
-        local totalEarnings = 0
-        if Config.Rewards and Config.Rewards.enabled then
-          totalEarnings = totalEarnings + (Config.Rewards.payouts[pos] or 0) + (Config.Rewards.participationReward or 0)
-        end
-        if Config.EntryFee and Config.EntryFee.enabled and lob.prizePool then
-          local pct = Config.EntryFee.poolSplit[pos] or 0
-          totalEarnings = totalEarnings + math.floor((lob.prizePool * pct) / 100)
-        end
+        local totalEarnings = entry.payout or 0
 
-        SaveRaceStats(entry.id, pos, lob.track, bestLap, totalEarnings)
+        SaveRaceStats(entry.id, pos, lob.track, entry.bestLap or 0, totalEarnings)
       end
 
       -- Race fully concluded: switch jumbotron back to IDLE for everyone

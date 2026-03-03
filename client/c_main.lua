@@ -224,6 +224,74 @@ local myPosition           = 0
 local totalRacers          = 0
 
 --------------------------------------------------------------------------------
+-- GHOSTING STATE
+--------------------------------------------------------------------------------
+local raceNetIds  = {}   -- { {pid=, netId=}, ... } from server
+local ghostActive = false
+local myRaceVeh   = nil  -- entity handle of our race vehicle
+
+local function StartGhostThread()
+    ghostActive = true
+    local ghostEntities = {}  -- cached entity handles for fast loop
+
+    -- Fast loop: collision disable only (every frame for rock-solid no-clip)
+    CreateThread(function()
+        while ghostActive and inRace do
+            if myRaceVeh and DoesEntityExist(myRaceVeh) then
+                for _, ent in ipairs(ghostEntities) do
+                    if DoesEntityExist(ent) then
+                        SetEntityNoCollisionEntity(myRaceVeh, ent, true)
+                    end
+                end
+            end
+            Wait(0)
+        end
+    end)
+
+    -- Slow loop: entity resolution + alpha (200ms throttle)
+    CreateThread(function()
+        while ghostActive and inRace do
+            local resolved = {}
+            for _, v in ipairs(raceNetIds) do
+                local other = NetworkGetEntityFromNetworkId(v.netId)
+                if DoesEntityExist(other) and other ~= myRaceVeh then
+                    resolved[#resolved+1] = other
+                    SetEntityAlpha(other, Config.Ghosting.ghostAlpha, false)
+                end
+            end
+            ghostEntities = resolved  -- atomic swap for fast loop
+            Wait(200)
+        end
+        -- Cleanup: restore alpha on all known race vehicles
+        for _, v in ipairs(raceNetIds) do
+            local other = NetworkGetEntityFromNetworkId(v.netId)
+            if DoesEntityExist(other) then
+                ResetEntityAlpha(other)
+            end
+        end
+    end)
+end
+
+-- Receive all race vehicle netIds from server
+RegisterNetEvent("speedway:raceVehicles", function(vehicles)
+    raceNetIds = vehicles or {}
+end)
+
+-- End start-of-race ghost period
+RegisterNetEvent("speedway:client:unghost", function()
+    ghostActive = false
+end)
+
+-- Lapped-player ghost toggle (ghost self against all others)
+RegisterNetEvent("speedway:client:setGhosted", function(isGhosted)
+    if isGhosted then
+        StartGhostThread()
+    else
+        ghostActive = false
+    end
+end)
+
+--------------------------------------------------------------------------------
 -- 5) COMPUTE DISTANCE ALONG TRACK
 --------------------------------------------------------------------------------
 local function ComputeDistanceAlongTrack(pos)
@@ -856,6 +924,9 @@ RegisterNetEvent("speedway:prepareStart", function(data)
           veh = NetworkGetEntityFromNetworkId(data.netId)
         end
 
+    -- Store our race vehicle handle for ghosting
+    myRaceVeh = veh
+
     -- prep vehicle
     SetEntityAsMissionEntity(veh, true, true)
     FreezeEntityPosition(veh, true)
@@ -931,6 +1002,11 @@ RegisterNetEvent("speedway:prepareStart", function(data)
             SetVehicleUndriveable(veh, false)
             SetVehicleHandbrake(veh, false)
 
+        -- Start ghosting at GO if enabled
+        if Config.Ghosting.enabled and Config.Ghosting.startGhosted then
+            StartGhostThread()
+        end
+
         -- Post-GO safety: briefly assert drivability and unlock state without touching engine
         CreateThread(function()
             local untilTs = GetGameTimer() + 3000
@@ -981,6 +1057,10 @@ end)
 
 -- Cleanup: remove spawned props and any active checkpoint/finish zones
 RegisterNetEvent("speedway:client:destroyprops", function()
+    -- End ghosting
+    ghostActive = false
+    raceNetIds = {}
+    myRaceVeh = nil
     -- delete props
     for _, obj in ipairs(currentProps) do
         if obj and DoesEntityExist(obj) then
@@ -1011,6 +1091,22 @@ end)
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:finalRanking", function(data)
     local results = data.allResults or {}
+
+    -- If ResultsUI is enabled and we have expanded results, use NUI
+    if Config.ResultsUI and Config.ResultsUI.enabled and #results > 0 and results[1].name then
+        SendNUIMessage({
+            action = "showRaceResults",
+            results = results,
+            bestLapPlayer = data.bestLapPlayer,
+            mostImprovedPlayer = data.mostImprovedPlayer,
+            track = data.track,
+            autoDismissMs = Config.ResultsUI.displayDurationMs or 20000,
+        })
+        SetNuiFocus(true, true)
+        return
+    end
+
+    -- Fallback: legacy toast notifications
     if not data.position then
         local lines = { loc("podium_header") }
         for i,e in ipairs(results) do
@@ -1037,11 +1133,19 @@ RegisterNetEvent("speedway:finalRanking", function(data)
     end
 end)
 
+-- NUI callback: dismiss race results overlay
+RegisterNUICallback('resultsClose', function(_, cb)
+    SetNuiFocus(false, false)
+    if cb then cb('ok') end
+end)
+
 --------------------------------------------------------------------------------
 -- 15) FINISH TELEPORT
 --------------------------------------------------------------------------------
 RegisterNetEvent("speedway:client:finishTeleport", function(coords)
     inRace = false
+    ghostActive = false
+    myRaceVeh = nil
     CreateThread(function()
         DoScreenFadeOut(1000); while not IsScreenFadedOut() do Wait(0) end
 

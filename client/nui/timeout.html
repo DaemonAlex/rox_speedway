@@ -58,6 +58,63 @@
   .btn-secondary { background:#374151; }
   .btn-secondary:hover { background:#2b303b; }
   .hint { font-size:12px; color: var(--muted); text-align:right; margin-top: 6px; }
+
+  /* ── Race Results Overlay ── */
+  #results-container {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.75); z-index: 9999;
+  }
+  .results-card {
+    width: 680px; max-width: 85vw; max-height: 85vh; overflow-y: auto;
+    background: linear-gradient(180deg, var(--panel-bg1), var(--panel-bg2));
+    border-radius: 18px; border: 1px solid var(--border);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--border), inset 0 0 80px var(--glow);
+    color: var(--text);
+  }
+  .results-header {
+    text-align: center; padding: 18px 20px 8px; font-size: 22px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+    border-bottom: 1px solid var(--border);
+  }
+  .results-track {
+    text-align: center; padding: 4px 0 12px; font-size: 13px; color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .results-table { width: 100%; border-collapse: collapse; }
+  .results-table thead th {
+    text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+    color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border-strong);
+    text-transform: uppercase;
+  }
+  .results-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .results-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .results-table tbody td { padding: 10px 12px; font-size: 14px; vertical-align: middle; }
+  .results-table tbody td:first-child { font-weight: 700; font-size: 16px; width: 48px; text-align: center; }
+
+  /* Podium accents */
+  .results-table tbody tr.pos-1 { border-left: 3px solid #ffd700; }
+  .results-table tbody tr.pos-1 td:first-child { color: #ffd700; }
+  .results-table tbody tr.pos-2 { border-left: 3px solid #c0c0c0; }
+  .results-table tbody tr.pos-2 td:first-child { color: #c0c0c0; }
+  .results-table tbody tr.pos-3 { border-left: 3px solid #cd7f32; }
+  .results-table tbody tr.pos-3 td:first-child { color: #cd7f32; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 4px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
+  .badge-bestlap { background: rgba(255,215,0,0.15); color: #ffd700; }
+  .badge-improved { background: rgba(0,200,83,0.15); color: #00c853; }
+
+  .results-footer {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .results-footer .dismiss-hint { font-size: 12px; color: var(--muted); }
+  .results-footer .btn-close {
+    background: #2563eb; color: #fff; border: none; border-radius: 8px;
+    padding: 10px 20px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .results-footer .btn-close:hover { background: #1d4ed8; }
   </style>
 </head>
 <body>
@@ -87,6 +144,29 @@
           <button id="btnStart" class="btn">Start Race</button>
         </div>
   <div class="hint" id="hint">Press F2 to interact with the lobby.</div>
+      </div>
+    </div>
+  </div>
+  <!-- Race Results Overlay -->
+  <div id="results-container">
+    <div class="results-card">
+      <div class="results-header">Race Results</div>
+      <div class="results-track" id="results-track"></div>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Driver</th>
+            <th>Total Time</th>
+            <th>Best Lap</th>
+            <th>Payout</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+      <div class="results-footer">
+        <span class="dismiss-hint">Press ESC or click Close</span>
+        <button class="btn-close" id="results-close">Close</button>
       </div>
     </div>
   </div>
@@ -188,6 +268,12 @@
         hint.style.display = on ? 'none' : 'block';
       } else if (data.action === 'hideLobby') {
         lobbyOverlay.style.display = 'none';
+      } else if (data.action === 'showRaceResults') {
+        populateResults(data);
+        document.getElementById('results-container').style.display = 'flex';
+        if (data.autoDismissMs > 0) {
+          resultsDismissTimer = setTimeout(function() { closeResults(); }, data.autoDismissMs);
+        }
       }
     });
 
@@ -212,9 +298,96 @@
       }).catch(() => {});
     });
 
-    // Allow ESC to exit interact mode and return to passive lobby preview
+    // ── Race Results helpers ──
+    let resultsDismissTimer = null;
+
+    function formatRaceTime(ms) {
+      if (!ms || ms <= 0) return '--:--.--';
+      var totalSec = ms / 1000;
+      var mins = Math.floor(totalSec / 60);
+      var secs = totalSec - (mins * 60);
+      // Show one decimal place
+      var secStr = secs < 10 ? '0' + secs.toFixed(1) : secs.toFixed(1);
+      return mins + ':' + secStr;
+    }
+
+    function formatPayout(amount) {
+      if (!amount || amount <= 0) return '--';
+      return '$' + amount.toLocaleString();
+    }
+
+    function populateResults(data) {
+      var results = data.results || [];
+      var trackEl = document.getElementById('results-track');
+      var tbody = document.getElementById('results-body');
+
+      trackEl.textContent = data.track ? data.track.replace(/_/g, ' ') : '';
+      tbody.innerHTML = '';
+
+      results.forEach(function(entry) {
+        var tr = document.createElement('tr');
+        if (entry.position <= 3) tr.className = 'pos-' + entry.position;
+
+        // Position
+        var tdPos = document.createElement('td');
+        var posLabel = entry.position === 1 ? '1st' : entry.position === 2 ? '2nd' : entry.position === 3 ? '3rd' : entry.position + 'th';
+        tdPos.textContent = posLabel;
+        tr.appendChild(tdPos);
+
+        // Driver name + badges
+        var tdName = document.createElement('td');
+        tdName.textContent = entry.name || ('Player ' + entry.id);
+        if (entry.isBestLap) {
+          var badge = document.createElement('span');
+          badge.className = 'badge badge-bestlap';
+          badge.textContent = '\u2605 Best Lap';
+          tdName.appendChild(badge);
+        }
+        if (entry.isMostImproved) {
+          var badge2 = document.createElement('span');
+          badge2.className = 'badge badge-improved';
+          badge2.textContent = '\u2191 Most Improved';
+          tdName.appendChild(badge2);
+        }
+        tr.appendChild(tdName);
+
+        // Total time
+        var tdTime = document.createElement('td');
+        tdTime.textContent = formatRaceTime(entry.time);
+        tr.appendChild(tdTime);
+
+        // Best lap
+        var tdBest = document.createElement('td');
+        tdBest.textContent = formatRaceTime(entry.bestLap);
+        tr.appendChild(tdBest);
+
+        // Payout
+        var tdPay = document.createElement('td');
+        tdPay.textContent = formatPayout(entry.payout);
+        tr.appendChild(tdPay);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function closeResults() {
+      document.getElementById('results-container').style.display = 'none';
+      if (resultsDismissTimer) { clearTimeout(resultsDismissTimer); resultsDismissTimer = null; }
+      fetch('https://' + resource + '/resultsClose', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) }).catch(function(){});
+    }
+
+    document.getElementById('results-close').addEventListener('click', function() { closeResults(); });
+
+    // Allow ESC to dismiss results or exit lobby interact mode
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        // If results are showing, dismiss them
+        if (document.getElementById('results-container').style.display !== 'none'
+            && document.getElementById('results-container').style.display !== '') {
+          closeResults();
+          return;
+        }
+        // Otherwise, exit lobby interact mode
         fetch(`https://${resource}/lobbyCancel`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({}) }).catch(()=>{});
       }
     });

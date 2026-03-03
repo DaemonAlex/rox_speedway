@@ -502,6 +502,24 @@ Config.Stats = {
     showAfterRace = true,            -- Show personal stats summary after each race
 }
 
+--- GHOSTING (anti-grief collision disabling)
+Config.Ghosting = {
+    enabled = true,
+    startGhosted = true,          -- ghost all racers at GO
+    unghostOnCheckpoint = 1,      -- unghost after ALL racers pass this checkpoint (0 = timer only)
+    unghostTimerSeconds = 15,     -- fallback timer if checkpoint not reached
+    lappedGhosting = true,        -- ghost players a full lap behind leader
+    ghostAlpha = 150,             -- transparency when ghosted (0-255)
+}
+
+--- RACE RESULTS UI (NUI results screen after race)
+Config.ResultsUI = {
+    enabled = true,
+    displayDurationMs = 20000,    -- auto-dismiss after 20s
+    showBestLap = true,
+    showMostImproved = true,      -- highlight player who gained most positions
+}
+
 --- RACE CLASSES
 Config.RaceClasses = {
     All = {

@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.3 — "Quality of Racing" (2026-03-02)
+
+### Ghosting System
+- **Start-of-race ghosting**: all racers are ghosted at GO to prevent first-corner pile-ups
+- **Checkpoint-based unghost**: ghosting ends when ALL racers pass checkpoint 1 (configurable)
+- **Timer fallback**: auto-unghost after 15 seconds if checkpoint condition isn't met
+- **Lapped-player ghosting**: players a full lap behind the leader become ghosted to prevent griefing
+- **Dual-speed client thread**: fast per-frame collision disable + slow 200ms alpha/entity resolution for performance
+- Fully configurable via `Config.Ghosting` (can be disabled entirely)
+
+### Race Summary UI
+- **NUI results overlay** replaces notification toasts after race finishes
+- Shows all drivers with position, total time, best lap, and payout
+- **Podium styling**: gold/silver/bronze accents for top 3 positions
+- **Best Lap badge**: star icon on the driver with the fastest single lap
+- **Most Improved badge**: arrow icon on the driver who gained the most positions from grid to finish
+- Auto-dismisses after 20 seconds (configurable), or close via ESC / Close button
+- Falls back to legacy toast notifications when `Config.ResultsUI.enabled = false`
+
+### Server Changes
+- `SpawnRaceVehicles()` now broadcasts all race vehicle netIds to clients
+- Grid order recorded at spawn for "Most Improved" calculation
+- Expanded `speedway:finalRanking` payload includes name, bestLap, lapTimes, payout, gridPosition, badges
+- Lapped-player detection in `speedway:updateProgress` handler
+
+### New Net Events
+- `speedway:raceVehicles` (S→C): share all race vehicle netIds
+- `speedway:client:unghost` (S→C): end start-of-race ghost period
+- `speedway:client:setGhosted` (S→C): toggle lapped-player ghost state
+
+### Files Changed
+- `config/config.lua` — added `Config.Ghosting` and `Config.ResultsUI`
+- `server/s_main.lua` — netId broadcast, ghost timer, checkpoint unghost, lapped ghost, expanded results
+- `client/c_main.lua` — ghost thread, unghost handlers, NUI results forwarding, cleanup
+- `client/nui/timeout.html` — results overlay HTML/CSS/JS
+- `CHANGELOG.md` — this entry
+
+---
+
 ## 2025-11-03
 
 Summary of changes derived from `NOTES.md`.
