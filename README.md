@@ -411,6 +411,15 @@ Config.PitCrewZones = {
 
 ## Changelog
 
+### v2.3.1 — Pit Crew Fixes
+- **Fixed:** `inPit` permanently stuck if vehicle destroyed mid-pit-stop (players locked out of pitting until rejoin)
+- **Fixed:** Pit crew blips removed (static blips managed centrally per server policy)
+- **Fixed:** `DrawMarker` and pit detection now only run during active races (no free repairs outside races)
+- **Fixed:** Jerry can model no longer leaked in memory after pit stops
+- **Fixed:** All debug prints gated behind `Config.DebugPrints` (error prints kept)
+- **Added:** 10-second re-entry cooldown after exiting a pit zone
+- **Cleanup:** Stripped emoji from all log output
+
 ### v2.3 — Quality of Racing
 - **Ghosting System** — Start-of-race ghost prevents pile-ups; lapped-player ghost prevents griefing; checkpoint or timer unghost
 - **Race Summary UI** — NUI results overlay with podium styling, best lap/most improved badges, payout display
