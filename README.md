@@ -47,6 +47,25 @@ Make sure these are already running on your server:
 - **75+ Vehicles** — Curated list, no duplicates
 - **LED Leaderboard** — Physical in-world scoreboard at the speedway (bundled, works out of the box)
 
+### NEW: Ghosting System
+Eliminates first-corner pile-ups and lapped-player griefing.
+
+- **Start-of-race ghost** — All racers pass through each other at GO (semi-transparent)
+- **Unghost on checkpoint** — Ghosting ends once all racers pass checkpoint 1
+- **Timer fallback** — Auto-unghost after 15 seconds if someone stalls at the start
+- **Lapped-player ghost** — Players a full lap behind the leader become ghosted to prevent blocking
+- Fully configurable or disable entirely with `Config.Ghosting.enabled = false`
+
+### NEW: Race Summary UI
+Proper results screen replaces notification toasts after a race finishes.
+
+- **NUI overlay** with driver positions, total times, best laps, and payouts
+- **Podium styling** — Gold, silver, bronze accents for top 3
+- **Best Lap badge** — Highlights the driver with the fastest single lap
+- **Most Improved badge** — Highlights the driver who gained the most positions from grid to finish
+- Auto-dismisses after 20 seconds, or close via ESC / Close button
+- Disable with `Config.ResultsUI.enabled = false` to revert to toast notifications
+
 ### NEW: Race Classes
 Pick a vehicle class when creating a lobby. Only vehicles in that class show up during selection.
 
@@ -191,6 +210,30 @@ Add your own classes by adding a new key with `label`, `description`, and a `veh
 Config.TargetSystem = 'ox_target'  -- or 'qb-target'
 ```
 
+### Ghosting
+
+```lua
+Config.Ghosting = {
+    enabled = true,
+    startGhosted = true,          -- Ghost all racers at GO
+    unghostOnCheckpoint = 1,      -- Unghost after ALL racers pass this checkpoint (0 = timer only)
+    unghostTimerSeconds = 15,     -- Fallback timer
+    lappedGhosting = true,        -- Ghost players a full lap behind leader
+    ghostAlpha = 150,             -- Transparency when ghosted (0-255)
+}
+```
+
+### Race Results UI
+
+```lua
+Config.ResultsUI = {
+    enabled = true,
+    displayDurationMs = 20000,    -- Auto-dismiss after 20s
+    showBestLap = true,
+    showMostImproved = true,      -- Highlight player who gained most positions
+}
+```
+
 ### Race Settings
 
 ```lua
@@ -286,7 +329,7 @@ rox_speedway/
     c_function.lua        -- Shared client utilities
     c_pit.lua             -- Pit stop logic & crew animations
     nui/
-      timeout.html        -- Lobby overlay & timeout modal
+      timeout.html        -- Lobby overlay, timeout modal & race results UI
   server/
     s_main.lua            -- Core server: lobbies, race logic, rewards, stats, entry fees
   leaderboard/
@@ -367,6 +410,12 @@ Config.PitCrewZones = {
 ---
 
 ## Changelog
+
+### v2.3 — Quality of Racing
+- **Ghosting System** — Start-of-race ghost prevents pile-ups; lapped-player ghost prevents griefing; checkpoint or timer unghost
+- **Race Summary UI** — NUI results overlay with podium styling, best lap/most improved badges, payout display
+- **Expanded Results Payload** — Server sends driver names, best laps, lap times, payouts, grid positions
+- **3 New Net Events** — `speedway:raceVehicles`, `speedway:client:unghost`, `speedway:client:setGhosted`
 
 ### v2.2 — Security Hardening & Optimization
 - **Server-side input validation** — All 8 net events now validate inputs (types, ranges, whitelists)
