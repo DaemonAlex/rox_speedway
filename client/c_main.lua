@@ -222,6 +222,8 @@ local racerCheckpointIndex = 0
 local inRace               = false
 local myPosition           = 0
 local totalRacers          = 0
+-- Expose race state for other client scripts (c_pit.lua)
+function IsSpeedwayRaceActive() return inRace end
 
 --------------------------------------------------------------------------------
 -- GHOSTING STATE

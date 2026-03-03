@@ -1,6 +1,6 @@
 -- client/c_pit.lua
 
-print("👷 [ROX-Speedway] c_pit.lua loaded")
+if Config.DebugPrints then print("[ROX-Speedway] c_pit.lua loaded") end
 
 local Config = require("config.config")
 
@@ -14,29 +14,29 @@ local pitBlips = {}
 CreateThread(function()
     Wait(100)
 
-    print(("👷 [ROX-Speedway] Config.PitCrewZones has %d entries"):format(#Config.PitCrewZones))
+    if Config.DebugPrints then print(("[ROX-Speedway] Config.PitCrewZones has %d entries"):format(#Config.PitCrewZones)) end
 
     local modelHash = GetHashKey(Config.PitCrewModel)
     RequestModel(modelHash)
     local deadline = GetGameTimer() + 10000
     while not HasModelLoaded(modelHash) and GetGameTimer() < deadline do Wait(0) end
     if not HasModelLoaded(modelHash) then
-        print("👷 [ROX-Speedway] ❌ Failed to load ped model '"..tostring(Config.PitCrewModel).."', attempting fallback model")
+        print("[ROX-Speedway] ERROR: Failed to load ped model '"..tostring(Config.PitCrewModel).."', attempting fallback model")
         local fallback = GetHashKey('s_m_y_construct_01')
         RequestModel(fallback)
         local deadline2 = GetGameTimer() + 8000
         while not HasModelLoaded(fallback) and GetGameTimer() < deadline2 do Wait(0) end
         if HasModelLoaded(fallback) then
             modelHash = fallback
-            print("👷 [ROX-Speedway] ✅ Loaded fallback ped model s_m_y_construct_01")
+            if Config.DebugPrints then print("[ROX-Speedway] Loaded fallback ped model s_m_y_construct_01") end
         else
-            print("👷 [ROX-Speedway] ❌ Could not load fallback ped model either; aborting pit crew spawn")
+            print("[ROX-Speedway] ERROR: Could not load fallback ped model either; aborting pit crew spawn")
             return
         end
     end
 
     for idx, zone in ipairs(Config.PitCrewZones) do
-        print(("👷 [ROX-Speedway] Spawning pit crew for zone %d at %s"):format(idx, tostring(zone.coords)))
+        if Config.DebugPrints then print(("[ROX-Speedway] Spawning pit crew for zone %d at %s"):format(idx, tostring(zone.coords))) end
     pitZones[idx] = { idle = {}, crew = {}, crewIdle = {}, crewHome = {}, spawnHeading = 0.0 }
         local data = pitZones[idx]
 
@@ -94,13 +94,7 @@ CreateThread(function()
             data.crewHome[ped] = vector3(pos.x, pos.y, spawnZ)
         end
 
-        -- map blip
-        local blip = AddBlipForCoord(zone.coords.x, zone.coords.y, zone.coords.z)
-        SetBlipSprite(blip, 225); SetBlipColour(blip, 5); SetBlipScale(blip, 0.8)
-        BeginTextCommandSetBlipName("STRING")
-        AddTextComponentSubstringPlayerName("Pit Crew Zone")
-        EndTextCommandSetBlipName(blip)
-        table.insert(pitBlips, blip)
+        -- Blips disabled per server policy (static blips managed centrally)
     end
 end)
 
@@ -115,10 +109,7 @@ AddEventHandler('onClientResourceStop', function(resName)
             for _, p in ipairs(zone.crew) do if DoesEntityExist(p) then DeleteEntity(p) end end
         end
     end
-    for _, blip in ipairs(pitBlips) do
-        if DoesBlipExist(blip) then RemoveBlip(blip) end
-    end
-    pitBlips = {}
+    -- Blips removed (static blips disabled per policy)
 end)
 
 --------------------------------------------------------------------------------
@@ -137,28 +128,36 @@ end
 -- 3) AUTOMATIC PIT DETECTION & SERVICE SEQUENCE
 --------------------------------------------------------------------------------
 local inPit = false
+local pitCooldownUntil = 0  -- GetGameTimer timestamp: block re-entry until this time
 CreateThread(function()
     while #pitZones < #Config.PitCrewZones do Wait(0) end
-    print("👷 [ROX-Speedway] Pit detection thread starting")
+    if Config.DebugPrints then print("[ROX-Speedway] Pit detection thread starting") end
 
     local fuelBones = { "door_fuel", "petrolcap", "petroltank" }
     local canModel = GetHashKey("prop_jerrycan_01a")
-    RequestModel(canModel)
-    while not HasModelLoaded(canModel) do Wait(0) end
 
     while true do
+        -- Only detect pit stops during an active race
+        if not (IsSpeedwayRaceActive and IsSpeedwayRaceActive()) then
+            Wait(1000)
+            goto continue
+        end
         Wait(500)
         local playerPed = PlayerPedId()
         local veh = GetVehiclePedIsIn(playerPed, false)
-        if not veh or veh == 0 then goto continue end
+        if not veh or veh == 0 then
+            -- Reset inPit if vehicle was destroyed mid-pit-stop
+            if inPit then inPit = false end
+            goto continue
+        end
 
         local speed = GetEntitySpeed(veh)
         local idx = getNearestZoneIdx(veh)
         local dist = #(GetEntityCoords(veh) - Config.PitCrewZones[idx].coords)
 
         if not inPit then
-            if dist < Config.PitCrewZones[idx].radius and speed < 0.5 then
-                print(("👷 [ROX-Speedway] Vehicle entered pit zone %d at speed %.2f"):format(idx, speed))
+            if dist < Config.PitCrewZones[idx].radius and speed < 0.5 and GetGameTimer() > pitCooldownUntil then
+                if Config.DebugPrints then print(("[ROX-Speedway] Vehicle entered pit zone %d at speed %.2f"):format(idx, speed)) end
                 inPit = true
 
                 local zoneData   = pitZones[idx]
@@ -242,7 +241,7 @@ CreateThread(function()
                 end
 
                 -- DEBUG: where they’re going
-                print("👷 [ROX-Speedway] REFUELER moving to →", fuelPos)
+                if Config.DebugPrints then print("[ROX-Speedway] REFUELER moving to →", fuelPos) end
 
                 -- prepare peds for movement: unfreeze, allow tasks, keep tasks
                 local function prep(p)
@@ -277,13 +276,16 @@ CreateThread(function()
                 TaskGoStraightToCoord(hoodPed,   frontApproach.x, frontApproach.y, frontApproach.z,  crewSpeed, -1, GetEntityHeading(veh), 0.5)
 
                 if Config.DebugPrints then
-                    print(string.format("👷 [ROX-Speedway] Move orders → refuel:(%.2f,%.2f,%.2f) hood:(%.2f,%.2f,%.2f) tire:(%.2f,%.2f,%.2f)",
+                    print(string.format("[ROX-Speedway] Move orders → refuel:(%.2f,%.2f,%.2f) hood:(%.2f,%.2f,%.2f) tire:(%.2f,%.2f,%.2f)",
                         rfx,rfy,rfz2, frontPos.x,frontPos.y,frontPos.z, sidePos.x,sidePos.y,sidePos.z))
                 end
 
                 Wait(1000)
 
-                -- REFUEL: attach & anim
+                -- REFUEL: load jerry can model, attach & anim
+                RequestModel(canModel)
+                local canDeadline = GetGameTimer() + 5000
+                while not HasModelLoaded(canModel) and GetGameTimer() < canDeadline do Wait(0) end
                 local canObj = CreateObject(canModel, fuelPos.x, fuelPos.y, fuelPos.z, true, true, false)
                 -- Attach to a stable right-hand prop bone with neutral transform to avoid face-clipping
                 -- If this looks off in your model pack, we can tweak offsets/rotations slightly.
@@ -433,6 +435,7 @@ CreateThread(function()
                 -- cleanup
                 ClearPedTasks(refuelPed)
                 DeleteEntity(canObj)
+                SetModelAsNoLongerNeeded(canModel)
                 RemoveAnimDict("timetable@gardener@filling_can")
                 RemoveAnimDict("anim@amb@clubhouse@tutorial@bkr_tut_ig3@")
                 RemoveAnimDict("mini@repair")
@@ -530,9 +533,10 @@ CreateThread(function()
             -- EXIT PIT
             local dist2 = #(GetEntityCoords(veh) - Config.PitCrewZones[idx].coords)
             if dist2 > Config.PitCrewZones[idx].radius then
-                print("👷 [ROX-Speedway] Exiting pit zone")
+                if Config.DebugPrints then print("[ROX-Speedway] Exiting pit zone") end
                 FreezeEntityPosition(veh, false)
                 inPit = false
+                pitCooldownUntil = GetGameTimer() + 10000  -- 10s cooldown before next pit
             end
         end
 
@@ -541,21 +545,25 @@ CreateThread(function()
 end)
 
 --------------------------------------------------------------------------------
--- 4) GROUND MARKERS (half-scale)
+-- 4) GROUND MARKERS (only during races)
 --------------------------------------------------------------------------------
 CreateThread(function()
     while true do
-        Wait(0)
-        for _, zone in ipairs(Config.PitCrewZones) do
-            local size = (zone.radius * 2.0) / 6.0
-            DrawMarker(
-                36,
-                zone.coords.x, zone.coords.y, zone.coords.z + 1.0,
-                0, 0, 0, 0, 0, 0,
-                size, size, size,
-                255, 255, 255, 200,
-                false, true, 2, false, nil, nil, false
-            )
+        if IsSpeedwayRaceActive and IsSpeedwayRaceActive() then
+            for _, zone in ipairs(Config.PitCrewZones) do
+                local size = (zone.radius * 2.0) / 6.0
+                DrawMarker(
+                    36,
+                    zone.coords.x, zone.coords.y, zone.coords.z + 1.0,
+                    0, 0, 0, 0, 0, 0,
+                    size, size, size,
+                    255, 255, 255, 200,
+                    false, true, 2, false, nil, nil, false
+                )
+            end
+            Wait(0)
+        else
+            Wait(1000)
         end
     end
 end)
