@@ -28,7 +28,25 @@ local QBCore, ESX
 
 if fw == 'qbcore' then
     if GetResourceState('qbx_core') == 'started' or GetResourceState('qbx_core') == 'starting' then
-        QBCore = exports['qbx_core']:GetCoreObject()
+        -- QBX dropped GetCoreObject; build a shim from its direct exports
+        -- so the rest of the bridge can use QBCore.Functions.* uniformly
+        local qbx = exports['qbx_core']
+        QBCore = {
+            Functions = {
+                GetPlayer = function(src) return qbx:GetPlayer(src) end,
+                GetQBPlayers = function()
+                    local result = {}
+                    for _, pidStr in ipairs(GetPlayers()) do
+                        local src = tonumber(pidStr)
+                        if src then
+                            local p = qbx:GetPlayer(src)
+                            if p then result[src] = p end
+                        end
+                    end
+                    return result
+                end,
+            }
+        }
     elseif GetResourceState('qb-core') == 'started' or GetResourceState('qb-core') == 'starting' then
         QBCore = exports['qb-core']:GetCoreObject()
     else
