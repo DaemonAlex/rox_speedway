@@ -2,7 +2,7 @@
 
 Multiplayer race system for FiveM built around Roxwood Speedway. Lobby-based, supports race classes, rewards, persistent stats, ghosting, pit crews, and a physical LED leaderboard sign.
 
-Originally forked from [max_rox_speedway by MaxSuperTech](https://github.com/MaxSuperTech/max_rox_speedway) — heavily rewritten since.
+Originally forked from [max_rox_speedway by MaxSuperTech](https://github.com/MaxSuperTech/max_rox_speedway) - heavily rewritten since.
 
 ---
 
