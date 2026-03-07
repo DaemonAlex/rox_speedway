@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Speedway Notice</title>
   <style>
-    html, body { margin:0; padding:0; height:100%; font-family: Arial, sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;600;700&display=swap');
+    html, body { margin:0; padding:0; height:100%; font-family: 'Barlow Condensed', 'Barlow', sans-serif; }
     .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.65); }
-    .card { width: 420px; max-width: 90vw; background: #111827; color: #fff; border: 1px solid #374151; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-    .header { padding: 14px 16px; border-bottom: 1px solid #374151; font-weight: 600; display:flex; align-items:center; gap:8px; }
-    .body { padding: 16px; line-height: 1.5; color: #e5e7eb; }
-    .actions { padding: 12px 16px; border-top: 1px solid #374151; display: flex; justify-content: flex-end; gap: 8px; }
-    button { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
-    button:hover { background: #1d4ed8; }
+    .card { width: 420px; max-width: 90vw; background: #0d1017; color: #fff; border: 1px solid rgba(255,255,255,0.10); border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+    .header { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.10); font-weight: 600; display:flex; align-items:center; gap:8px; }
+    .body { padding: 16px; line-height: 1.5; color: #e9eef7; }
+    .actions { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.10); display: flex; justify-content: flex-end; gap: 8px; }
+    button { background: rgba(0,194,255,0.14); color: #00c2ff; border: 1px solid rgba(0,194,255,0.45); border-radius: 4px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+    button:hover { background: rgba(0,194,255,0.25); box-shadow: 0 0 12px rgba(0,194,255,0.3); }
     .titleIcon { font-size: 18px; }
 
     /* Lobby tablet styles */
@@ -32,7 +33,7 @@
     .tablet {
       width: 420px; max-width: 46vw; margin-left: 2.2vw;
       background: linear-gradient(180deg, var(--panel-bg1), var(--panel-bg2));
-      border-radius: 18px; border: 1px solid var(--border);
+      border-radius: 10px; border: 1px solid var(--border);
       box-shadow: 0 10px 32px rgba(0,0,0,0.45), 0 0 0 1px var(--border), inset 0 0 64px var(--glow);
       color: var(--text); overflow:hidden;
       /* requested: semi-transparency + 50% scale */
@@ -53,10 +54,10 @@
     .host { color: var(--host); font-weight:700; }
     .waiting { text-align:center; color: var(--muted); font-size:14px; padding:12px; }
   .lobbyActions { display:flex; gap:8px; justify-content:flex-end; margin-top: 8px; }
-  .btn { background:#2563eb; color:#fff; border:none; border-radius:8px; padding:10px 12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); }
-  .btn:hover { background:#1d4ed8; }
-  .btn-secondary { background:#374151; }
-  .btn-secondary:hover { background:#2b303b; }
+  .btn { background:rgba(0,194,255,0.14); color:#00c2ff; border:1px solid rgba(0,194,255,0.45); border-radius:4px; padding:10px 12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); }
+  .btn:hover { background:rgba(0,194,255,0.25); box-shadow:0 0 12px rgba(0,194,255,0.3); }
+  .btn-secondary { background:rgba(255,255,255,0.06); color:#e9eef7; border:1px solid rgba(255,255,255,0.12); }
+  .btn-secondary:hover { background:rgba(255,255,255,0.10); }
   .hint { font-size:12px; color: var(--muted); text-align:right; margin-top: 6px; }
 
   /* ── Race Results Overlay ── */
@@ -67,7 +68,7 @@
   .results-card {
     width: 680px; max-width: 85vw; max-height: 85vh; overflow-y: auto;
     background: linear-gradient(180deg, var(--panel-bg1), var(--panel-bg2));
-    border-radius: 18px; border: 1px solid var(--border);
+    border-radius: 8px; border: 1px solid var(--border);
     box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--border), inset 0 0 80px var(--glow);
     color: var(--text);
   }
@@ -102,7 +103,7 @@
 
   .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 4px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
   .badge-bestlap { background: rgba(255,215,0,0.15); color: #ffd700; }
-  .badge-improved { background: rgba(0,200,83,0.15); color: #00c853; }
+  .badge-improved { background: rgba(0,230,118,0.15); color: #00e676; }
 
   .results-footer {
     padding: 12px 20px; border-top: 1px solid var(--border);
@@ -110,11 +111,11 @@
   }
   .results-footer .dismiss-hint { font-size: 12px; color: var(--muted); }
   .results-footer .btn-close {
-    background: #2563eb; color: #fff; border: none; border-radius: 8px;
+    background: rgba(0,194,255,0.14); color: #00c2ff; border: 1px solid rgba(0,194,255,0.45); border-radius: 4px;
     padding: 10px 20px; font-weight: 700; cursor: pointer;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   }
-  .results-footer .btn-close:hover { background: #1d4ed8; }
+  .results-footer .btn-close:hover { background: rgba(0,194,255,0.25); box-shadow: 0 0 12px rgba(0,194,255,0.3); }
   </style>
 </head>
 <body>

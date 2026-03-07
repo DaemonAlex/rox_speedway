@@ -22,6 +22,7 @@ client_scripts {
 
 server_scripts {
   '@oxmysql/lib/MySQL.lua',
+  'server/sv_bridge.lua',            -- framework bridge (QBCore/QBX + ESX auto-detect)
   'server/s_main.lua',
   'leaderboard/sv_leaderboard.lua', -- leaderboard display logic + idle best-times
 }
@@ -43,7 +44,7 @@ this_is_a_map 'yes'
 
 dependencies {
     'ox_lib',
-    -- Optional: 'qb-core' or 'qbx_core' (used for character name plates; falls back to Rockstar name)
+    -- Optional: 'qb-core', 'qbx_core', or 'es_extended' (auto-detected; used for rewards, stats, plates)
     -- Optional: target system - 'ox_target' or 'qb-target' (configure in config.lua)
 }
 

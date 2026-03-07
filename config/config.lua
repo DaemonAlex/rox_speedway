@@ -1,5 +1,8 @@
 Config = Config or {}
 
+-- Framework override: nil = auto-detect (QBCore/QBX/ESX), or set to 'qbcore' / 'esx'
+Config.Framework = nil
+
 Config.Locale = "en"  -- change to "fr" or "de" as needed
 
 -- Target System: 'ox_target' or 'qb-target'

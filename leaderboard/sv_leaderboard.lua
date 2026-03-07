@@ -63,22 +63,12 @@ end)
 local idleRunning = false
 local idleStopFlag = false
 
-local function GetQBCore()
-    if GetResourceState('qb-core') == 'started' or GetResourceState('qb-core') == 'starting' then
-        return exports['qb-core']:GetCoreObject()
-    elseif GetResourceState('qbx_core') == 'started' or GetResourceState('qbx_core') == 'starting' then
-        return exports['qbx_core']:GetCoreObject()
-    end
-    return nil
-end
-
 --- Gather top 9 best lap times from all players across all tracks.
 --- Returns { names = {string...}, times = {number...} } sorted by time ascending.
 local function GetTopBestTimes()
     local rows = MySQL.query.await('SELECT citizenid, best_laps FROM speedway_stats WHERE best_laps IS NOT NULL AND best_laps != ?', { '{}' })
     if not rows or #rows == 0 then return nil end
 
-    local QBCore = GetQBCore()
     local entries = {}
 
     for _, row in ipairs(rows) do
@@ -104,36 +94,23 @@ local function GetTopBestTimes()
         top[i] = entries[i]
     end
 
+    -- Build online player lookup: identifier -> server id
+    local onlinePlayers = Bridge.GetAllPlayersWithIdentifier()
+
     -- Look up player names
     local nameCache = {}
     local names, times = {}, {}
     for i, entry in ipairs(top) do
         if not nameCache[entry.citizenid] then
             local displayName = entry.citizenid -- fallback
-            if QBCore then
-                -- Try to find an online player with this citizenid
-                local found = false
-                local players = QBCore.Functions.GetQBPlayers and QBCore.Functions.GetQBPlayers() or {}
-                for _, player in pairs(players) do
-                    if player and player.PlayerData and player.PlayerData.citizenid == entry.citizenid then
-                        local ci = player.PlayerData.charinfo
-                        if ci then
-                            displayName = (ci.firstname or '') .. ' ' .. (ci.lastname or '')
-                        end
-                        found = true
-                        break
-                    end
-                end
-                -- If not online, query the database
-                if not found then
-                    local pRow = MySQL.single.await('SELECT charinfo FROM players WHERE citizenid = ?', { entry.citizenid })
-                    if pRow and pRow.charinfo then
-                        local ci = json.decode(pRow.charinfo)
-                        if ci then
-                            displayName = (ci.firstname or '') .. ' ' .. (ci.lastname or '')
-                        end
-                    end
-                end
+            local onlinePid = onlinePlayers[entry.citizenid]
+            if onlinePid then
+                -- Player is online — get name from framework
+                displayName = Bridge.GetPlayerName(onlinePid) or displayName
+            else
+                -- Player is offline — query database
+                local dbName = Bridge.GetPlayerNameFromDB(entry.citizenid)
+                if dbName then displayName = dbName end
             end
             nameCache[entry.citizenid] = displayName
         end

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Lobby Waiting Room</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;600;700&display=swap');
     :root {
       --bg: #0f121a;
       --panel-bg1: #1b2030;
@@ -21,7 +22,7 @@
     html, body { height: 100%; }
     body {
       margin: 0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-family: 'Barlow Condensed', 'Barlow', sans-serif;
       color: var(--text);
       display: grid;
       place-items: center;
@@ -34,7 +35,7 @@
     .tablet.container {
       width: min(92vw, 560px);
       background: linear-gradient(180deg, var(--panel-bg1), var(--panel-bg2));
-      border-radius: 18px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       box-shadow:
         0 10px 32px rgba(0,0,0,0.45),
@@ -85,7 +86,7 @@
       width: 100%;
       appearance: none;
       border: 1px solid var(--border-strong);
-      border-radius: 10px;
+      border-radius: 4px;
       padding: 10px 14px;
       background: linear-gradient(180deg, rgba(0,194,255,0.18), rgba(0,0,0,0.20));
       color: var(--text);

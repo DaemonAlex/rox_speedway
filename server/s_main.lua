@@ -1,12 +1,8 @@
 -- s_main.lua
 
 local Config    = require("config.config")
-local QBCore    = nil
-if GetResourceState('qb-core') == 'started' or GetResourceState('qb-core') == 'starting' then
-  QBCore = exports['qb-core']:GetCoreObject()
-elseif GetResourceState('qbx_core') == 'started' or GetResourceState('qbx_core') == 'starting' then
-  QBCore = exports['qbx_core']:GetCoreObject()
-end
+-- Bridge (loaded before this file via fxmanifest) provides: Bridge.Framework,
+-- Bridge.GetPlayerIdentifier(), Bridge.AddMoney(), etc.
 local localeTable = require("locales." .. Config.Locale)
 local function locale(key, ...)
   local str = localeTable[key] or key
@@ -101,12 +97,7 @@ end
 -- Helper: get citizenid from server id
 --------------------------------------------------------------------------------
 local function GetCitizenId(pid)
-  if not QBCore then return nil end
-  local Player = QBCore.Functions.GetPlayer(pid)
-  if Player and Player.PlayerData then
-    return Player.PlayerData.citizenid
-  end
-  return nil
+  return Bridge.GetPlayerIdentifier(pid)
 end
 
 --------------------------------------------------------------------------------
@@ -114,7 +105,7 @@ end
 --------------------------------------------------------------------------------
 local function GrantRewards(lob, results, lobbyName)
   if not Config.Rewards or not Config.Rewards.enabled then return end
-  if not QBCore then return end
+  if not Bridge.Framework then return end
 
   -- Find best lap across all players
   local globalBestLap = math.huge
@@ -130,66 +121,57 @@ local function GrantRewards(lob, results, lobbyName)
 
   for pos, entry in ipairs(results) do
     local pid = entry.id
-    local Player = QBCore.Functions.GetPlayer(pid)
-    if Player then
-      local totalPayout = 0
-      local positionPayout = Config.Rewards.payouts[pos] or 0
-      local positionLabel = tostring(pos)
-      if pos == 1 then positionLabel = "1st"
-      elseif pos == 2 then positionLabel = "2nd"
-      elseif pos == 3 then positionLabel = "3rd"
-      else positionLabel = pos .. "th" end
+    -- Skip players who disconnected before payout (bridge returns false if offline)
+    if not Bridge.GetPlayerIdentifier(pid) then goto continueReward end
 
-      -- Position payout
-      if positionPayout > 0 then
-        Player.Functions.AddMoney(Config.Rewards.moneyType, positionPayout, 'speedway-race')
-        totalPayout = totalPayout + positionPayout
-      end
+    local totalPayout = 0
+    local positionPayout = Config.Rewards.payouts[pos] or 0
+    local positionLabel = tostring(pos)
+    if pos == 1 then positionLabel = "1st"
+    elseif pos == 2 then positionLabel = "2nd"
+    elseif pos == 3 then positionLabel = "3rd"
+    else positionLabel = pos .. "th" end
 
-      -- Participation reward
-      local participation = Config.Rewards.participationReward or 0
-      if participation > 0 then
-        Player.Functions.AddMoney(Config.Rewards.moneyType, participation, 'speedway-participation')
-        totalPayout = totalPayout + participation
-      end
-
-      -- Best lap bonus
-      local bestLapBonus = 0
-      if pid == bestLapPlayer and Config.Rewards.bestLapBonus and Config.Rewards.bestLapBonus > 0 then
-        bestLapBonus = Config.Rewards.bestLapBonus
-        Player.Functions.AddMoney(Config.Rewards.moneyType, bestLapBonus, 'speedway-bestlap')
-        totalPayout = totalPayout + bestLapBonus
-      end
-
-      -- Vehicle prize for 1st place
-      local vehiclePrize = nil
-      if pos == 1 and Config.Rewards.vehiclePrize then
-        vehiclePrize = Config.Rewards.vehiclePrize
-        local cid = GetCitizenId(pid)
-        if cid then
-          MySQL.insert.await('INSERT INTO player_vehicles (license, citizenid, vehicle, hash, mods, plate, garage, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
-            GetPlayerIdentifierByType(pid, 'license') or '',
-            cid,
-            vehiclePrize,
-            tostring(joaat(vehiclePrize)),
-            '{}',
-            'PRIZE' .. math.random(100, 999),
-            Config.Rewards.vehiclePrizeGarage or 'pillboxgarage',
-            0
-          })
-        end
-      end
-
-      -- Notify client
-      TriggerClientEvent('speedway:client:rewardNotify', pid, {
-        positionPayout = positionPayout,
-        positionLabel = positionLabel,
-        participation = participation,
-        bestLapBonus = bestLapBonus,
-        vehiclePrize = vehiclePrize,
-        totalPayout = totalPayout,
-      })
+    -- Position payout
+    if positionPayout > 0 then
+      Bridge.AddMoney(pid, Config.Rewards.moneyType, positionPayout, 'speedway-race')
+      totalPayout = totalPayout + positionPayout
     end
+
+    -- Participation reward
+    local participation = Config.Rewards.participationReward or 0
+    if participation > 0 then
+      Bridge.AddMoney(pid, Config.Rewards.moneyType, participation, 'speedway-participation')
+      totalPayout = totalPayout + participation
+    end
+
+    -- Best lap bonus
+    local bestLapBonus = 0
+    if pid == bestLapPlayer and Config.Rewards.bestLapBonus and Config.Rewards.bestLapBonus > 0 then
+      bestLapBonus = Config.Rewards.bestLapBonus
+      Bridge.AddMoney(pid, Config.Rewards.moneyType, bestLapBonus, 'speedway-bestlap')
+      totalPayout = totalPayout + bestLapBonus
+    end
+
+    -- Vehicle prize for 1st place
+    local vehiclePrize = nil
+    if pos == 1 and Config.Rewards.vehiclePrize then
+      vehiclePrize = Config.Rewards.vehiclePrize
+      local plate = 'PRIZE' .. math.random(100, 999)
+      Bridge.InsertVehicle(pid, vehiclePrize, plate, Config.Rewards.vehiclePrizeGarage or 'pillboxgarage')
+    end
+
+    -- Notify client
+    TriggerClientEvent('speedway:client:rewardNotify', pid, {
+      positionPayout = positionPayout,
+      positionLabel = positionLabel,
+      participation = participation,
+      bestLapBonus = bestLapBonus,
+      vehiclePrize = vehiclePrize,
+      totalPayout = totalPayout,
+    })
+
+    ::continueReward::
   end
 end
 
@@ -198,7 +180,7 @@ end
 --------------------------------------------------------------------------------
 local function DistributePrizePool(lob, results)
   if not Config.EntryFee or not Config.EntryFee.enabled then return end
-  if not QBCore then return end
+  if not Bridge.Framework then return end
   local pool = lob.prizePool or 0
   if pool <= 0 then return end
 
@@ -206,12 +188,8 @@ local function DistributePrizePool(lob, results)
     local pct = Config.EntryFee.poolSplit[pos]
     if pct and pct > 0 then
       local payout = math.floor(pool * pct / 100)
-      if payout > 0 then
-        local Player = QBCore.Functions.GetPlayer(entry.id)
-        if Player then
-          Player.Functions.AddMoney(Config.EntryFee.moneyType or 'cash', payout, 'speedway-prizepool')
-          TriggerClientEvent('speedway:client:rewardNotify', entry.id, { poolPayout = payout })
-        end
+      if payout > 0 and Bridge.AddMoney(entry.id, Config.EntryFee.moneyType or 'cash', payout, 'speedway-prizepool') then
+        TriggerClientEvent('speedway:client:rewardNotify', entry.id, { poolPayout = payout })
       end
     end
   end
@@ -287,29 +265,25 @@ end)
 --------------------------------------------------------------------------------
 local function ChargeEntryFee(pid)
   if not Config.EntryFee or not Config.EntryFee.enabled then return true end
-  if not QBCore then return true end
-  local Player = QBCore.Functions.GetPlayer(pid)
-  if not Player then return false end
+  if not Bridge.Framework then return true end
   local amount = Config.EntryFee.amount or 0
   if amount <= 0 then return true end
   local moneyType = Config.EntryFee.moneyType or 'cash'
-  if Player.Functions.GetMoney(moneyType) < amount then
+  if Bridge.GetMoney(pid, moneyType) < amount then
     ServerNotify(pid, 'Speedway', locale("entry_fee_insufficient", amount), 'error')
     return false
   end
-  Player.Functions.RemoveMoney(moneyType, amount, 'speedway-entryfee')
+  Bridge.RemoveMoney(pid, moneyType, amount, 'speedway-entryfee')
   ServerNotify(pid, 'Speedway', locale("entry_fee_charged", amount), 'inform')
   return true
 end
 
 local function RefundEntryFee(pid)
   if not Config.EntryFee or not Config.EntryFee.enabled then return end
-  if not QBCore then return end
-  local Player = QBCore.Functions.GetPlayer(pid)
-  if not Player then return end
+  if not Bridge.Framework then return end
   local amount = Config.EntryFee.amount or 0
   if amount <= 0 then return end
-  Player.Functions.AddMoney(Config.EntryFee.moneyType or 'cash', amount, 'speedway-entryfee-refund')
+  Bridge.AddMoney(pid, Config.EntryFee.moneyType or 'cash', amount, 'speedway-entryfee-refund')
   ServerNotify(pid, 'Speedway', locale("entry_fee_refunded", amount), 'success')
 end
 
@@ -325,12 +299,7 @@ local amirState      = {}    -- per-lobby AMIR throttle and last state
 -- - Max 8 characters (GTA V plate limit)
 -- - Optionally uniquified with digits if a collision occurs within the same spawn batch
 local function makePlateFromPlayer(pid, used)
-  local Player = QBCore and QBCore.Functions and QBCore.Functions.GetPlayer and QBCore.Functions.GetPlayer(pid)
-  local first, last = nil, nil
-  if Player and Player.PlayerData and Player.PlayerData.charinfo then
-    first = Player.PlayerData.charinfo.firstname
-    last  = Player.PlayerData.charinfo.lastname
-  end
+  local first, last = Bridge.GetPlayerFirstLast(pid)
 
   local function san(s)
     if not s then return "" end

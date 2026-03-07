@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## v2.4 — UI Restyle (2026-03-06)
+
+Replaced generic Tailwind-derived colors with a custom motorsport/F1 timing screen palette. The UI now uses a darker carbon background, cyan ghost buttons with glow hover states, and tighter border radii throughout — closer to a proper race timing display than a generic web app.
+
+### Visual
+- **Font**: switched to Barlow Condensed / Barlow (Google Fonts) — narrow, technical, commonly used in motorsport design
+- **Buttons**: replaced solid blue (#2563eb) fills with frosted cyan ghost style — translucent cyan background, cyan text, outlined border, glow on hover
+- **Secondary buttons**: neutral translucent white instead of gray-700
+- **Modal card**: darker background (#0d1017), consistent rgba borders instead of gray hex values
+- **Results card**: tighter radius (18px → 8px), same cyan button treatment
+- **Tablet/lobby panel**: radius 18px → 10px
+- **All border-radius values**: tightened across the board (10px → 6px on cards, 8px → 4px on buttons)
+- **Badge "Most Improved"**: slightly brighter green (#00c853 → #00e676)
+
+### Files Changed
+- `client/nui/timeout.html` — full color/font/radius overhaul
+- `client/nui/lobby.html` — font and radius updates for consistency
+- `README.md` — rewritten
+
+### Removed Colors
+No more raw Tailwind hex values in the UI: `#2563eb`, `#1d4ed8`, `#374151`, `#111827`, `#e5e7eb` are all gone.
+
+---
+
 ## v2.3 — "Quality of Racing" (2026-03-02)
 
 ### Ghosting System
