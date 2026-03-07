@@ -62,3 +62,12 @@ CreateThread(function()
     -- Request current display state from the server so late-joiners see the board
     TriggerServerEvent("speedway:requestData")
 end)
+
+-- Clean up DUI on resource stop to prevent orphaned objects on restart
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    if DuiObject then
+        DestroyDui(DuiObject)
+        DuiObject = nil
+    end
+end)
